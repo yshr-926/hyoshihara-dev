@@ -27,6 +27,14 @@ pnpm-debug.log*
 dist/
 
 .claude/
+CLAUDE.md
+AGENTS.md
+
+docs/
+
 # astro-og-canvas のビルドキャッシュ
 .astro-og-canvas/
 node_modules/.astro-og-canvas/
+
+.playwright/
+.playwright-mcp/

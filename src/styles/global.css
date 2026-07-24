@@ -1,11 +1,220 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
-/* サイト全体のベース。デザインの作り込みは実装フェーズで frontend-design を使って詰める */
+/* ============================================================
+   デザインコンセプト: 「図面」
+   空間最適化を主題とするサイトなので、ページ自体を製図用紙に見立てる。
+   - 地: 方眼のトレース紙(明) / 夜の青図(暗)
+   - インク: 藍鼠(プルシアンブルー寄りの墨色)
+   - リンク: 青図のコバルト
+   - 強調: 朱書きの朱(図面の校正・押印の色)。使いどころは絞る
+   色はすべて light-dark() で両テーマを一元管理する
+   (:root の color-scheme: light dark が前提)。
+   ============================================================ */
+
+@theme {
+  /* カスタムイージング。標準のCSSイージングは弱いので、UIには一段強いカーブを使う */
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out-strong: cubic-bezier(0.77, 0, 0.175, 1);
+
+  /* 紙とインク */
+  --color-paper: light-dark(#f5f7f8, #0e151c);
+  --color-surface: light-dark(#ffffff, #172029);
+  --color-ink: light-dark(#1f2e3a, #dbe4ec);
+  --color-ink-muted: light-dark(#5d6d7a, #8da0af);
+  --color-line: light-dark(rgb(31 46 58 / 0.16), rgb(219 228 236 / 0.18));
+
+  /* 青図のコバルト(リンク)と朱書きの朱(マーク・強調) */
+  --color-cobalt: light-dark(#1a56b0, #7aa9e8);
+  --color-shu: light-dark(#c43a1e, #f0693f);
+
+  /* 英数ラベル・日付・座標は Plex Mono。和文はシステムサンセリフ
+     (CJK Webフォントはパフォーマンス要件により載せない) */
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: system-ui, -apple-system, "Hiragino Kaku Gothic ProN",
+    "Hiragino Sans", "Yu Gothic UI", Meiryo, "Noto Sans JP", sans-serif;
+}
+
 :root {
   color-scheme: light dark;
 }
 
-html {
-  scroll-behavior: smooth;
+@layer base {
+  /* 方眼: 24pxの細罫 + 96pxごとの太罫。本文の可読性を守るためごく薄く敷く */
+  body {
+    background-color: var(--color-paper);
+    background-image:
+      linear-gradient(to right, var(--grid-major) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid-major) 1px, transparent 1px),
+      linear-gradient(to right, var(--grid-minor) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid-minor) 1px, transparent 1px);
+    background-size:
+      96px 96px,
+      96px 96px,
+      24px 24px,
+      24px 24px;
+    --grid-major: light-dark(rgb(31 46 58 / 0.07), rgb(219 228 236 / 0.06));
+    --grid-minor: light-dark(rgb(31 46 58 / 0.04), rgb(219 228 236 / 0.03));
+  }
+
+  /* 見出しは行末バランス、本文は孤立行(orphan)を避ける */
+  h1, h2, h3, h4 {
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  /* スティッキーヘッダーの下にアンカーターゲットが潜り込まないようにする */
+  [id] {
+    scroll-margin-top: 4.5rem;
+  }
+
+  /* テキスト選択も朱書きに揃える */
+  ::selection {
+    background: light-dark(rgb(196 58 30 / 0.22), rgb(240 105 63 / 0.32));
+  }
+}
+
+/* ヘッダーは半透明マテリアル。方眼がその下をスクロールして透ける。
+   罫線は常時表示せず、スクロールしてコンテンツが重なったときだけフェードイン
+   (scroll edge effect)。data-scrolled は Layout.astro のスクリプトが付け外しする。 */
+.site-header {
+  background: light-dark(rgb(245 247 248 / 0.78), rgb(14 21 28 / 0.75));
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid transparent;
+  transition: border-color 300ms var(--ease-out-strong);
+}
+.site-header[data-scrolled] {
+  border-bottom-color: var(--color-line);
+}
+
+/* 透明度を減らす設定のユーザーには、ブラーをやめて不透明にする */
+@media (prefers-reduced-transparency: reduce) {
+  .site-header {
+    background: var(--color-paper);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* 高コントラスト設定では不透明+はっきりした境界線 */
+@media (prefers-contrast: more) {
+  .site-header {
+    background: var(--color-paper);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .site-header[data-scrolled] {
+    border-bottom-color: light-dark(rgb(0 0 0 / 0.4), rgb(255 255 255 / 0.5));
+  }
+}
+
+/* 記事本文(prose)をインク/コバルト/朱のトークンに寄せる。
+   色は light-dark() が両テーマを解決するので dark:prose-invert は不要 */
+.prose {
+  --tw-prose-body: var(--color-ink);
+  --tw-prose-headings: var(--color-ink);
+  --tw-prose-lead: var(--color-ink-muted);
+  --tw-prose-links: var(--color-cobalt);
+  --tw-prose-bold: var(--color-ink);
+  --tw-prose-counters: var(--color-ink-muted);
+  --tw-prose-bullets: var(--color-shu);
+  --tw-prose-hr: var(--color-line);
+  --tw-prose-quotes: var(--color-ink);
+  --tw-prose-quote-borders: var(--color-shu);
+  --tw-prose-captions: var(--color-ink-muted);
+  --tw-prose-code: var(--color-ink);
+  --tw-prose-th-borders: var(--color-line);
+  --tw-prose-td-borders: var(--color-line);
+}
+.prose a {
+  text-decoration-color: color-mix(in srgb, var(--color-cobalt) 40%, transparent);
+  transition: color 200ms var(--ease-out-strong),
+    text-decoration-color 200ms var(--ease-out-strong);
+}
+.prose a:hover {
+  color: var(--color-shu);
+  text-decoration-color: currentColor;
+}
+
+/* スムーススクロールは酔いやすいユーザーには重い。no-preference のときだけ有効化 */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* ページ遷移(View Transitions)のコンテンツ本体アニメ。Layout.astro の contentSwap から参照。
+   transform/opacity のみでGPUに乗せる。新ページはわずかに下から、旧ページはその場で消える。 */
+@keyframes content-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 退場は入場と同じ縦の経路を逆向きに(下から入る ⇔ 上へ抜ける)。
+   経路が対称だと空間のつながりが保たれる */
+@keyframes content-leave {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+/* ============================================================
+   FIG. 1 — ヒーローのパッキング図。
+   ブロックが盤面外からスライドして最適配置に「収束」する。
+   各ブロックは --dx/--dy(開始オフセット)と animation-delay を
+   インラインで持つ。fill-mode: both なので削除・遅延中も静止状態が正しい。
+   prefers-reduced-motion 時は下の全体ルールで即座に最終状態になる。
+   ============================================================ */
+@keyframes fig-settle {
+  from {
+    opacity: 0;
+    transform: translate(var(--dx, 0), var(--dy, 0));
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+}
+.fig-block {
+  animation: fig-settle 0.6s var(--ease-out-strong) both;
+}
+@keyframes fig-note {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.fig-note {
+  animation: fig-note 0.5s var(--ease-out-strong) 1s both;
+}
+
+/* reduced-motion: 動きは消すが、理解を助ける opacity/color の変化は残す(ゼロにはしない)。
+   位置移動・スケール・大きな duration だけを無効化する。
+   ※ View Transitions 自体は ClientRouter が reduced-motion で自動無効化する。 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
