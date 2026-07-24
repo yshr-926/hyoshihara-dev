@@ -1,0 +1,29 @@
+---
+import { getCollection } from 'astro:content';
+import Layout from '../../layouts/Layout.astro';
+
+const posts = (await getCollection('blog', ({ data }) => !data.draft))
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+---
+
+<Layout title="Blog — hyoshihara" description="技術記事の一覧">
+  <h1 class="mb-8 text-2xl font-bold">Blog</h1>
+  <ul class="space-y-8">
+    {posts.map((post) => (
+      <li>
+        <a href={`/blog/${post.id}`} class="group block">
+          <h2 class="text-lg font-semibold group-hover:underline">{post.data.title}</h2>
+          <p class="mt-1 text-sm text-neutral-500">
+            {post.data.date.toISOString().slice(0, 10)}
+            {post.data.tags.length > 0 && (
+              <span class="ml-2">
+                {post.data.tags.map((tag) => <span class="mr-1">#{tag}</span>)}
+              </span>
+            )}
+          </p>
+          <p class="mt-2 text-neutral-700 dark:text-neutral-300">{post.data.description}</p>
+        </a>
+      </li>
+    ))}
+  </ul>
+</Layout>

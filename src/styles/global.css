@@ -1,0 +1,11 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+/* サイト全体のベース。デザインの作り込みは実装フェーズで frontend-design を使って詰める */
+:root {
+  color-scheme: light dark;
+}
+
+html {
+  scroll-behavior: smooth;
+}

@@ -1,0 +1,31 @@
+---
+import { getCollection, render } from 'astro:content';
+import Layout from '../../layouts/Layout.astro';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('blog', ({ data }) => !data.draft);
+  return posts.map((post) => ({
+    params: { slug: post.id },
+    props: { post },
+  }));
+}
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+---
+
+<Layout title={`${post.data.title} — hyoshihara`} description={post.data.description}>
+  <article>
+    <header class="mb-8">
+      <h1 class="text-3xl font-bold tracking-tight">{post.data.title}</h1>
+      <p class="mt-2 text-sm text-neutral-500">
+        {post.data.date.toISOString().slice(0, 10)}
+        {post.data.tags.map((tag) => <span class="ml-1">#{tag}</span>)}
+      </p>
+    </header>
+    {/* 記事本文は typography プラグインの prose で整形 */}
+    <div class="prose prose-neutral max-w-none dark:prose-invert">
+      <Content />
+    </div>
+  </article>
+</Layout>
