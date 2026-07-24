@@ -23,11 +23,15 @@ const { Content } = await render(post);
     <header class="mb-8">
       <p class="mb-3 font-mono text-xs text-ink-muted">
         {post.data.date.toISOString().slice(0, 10)}
-        {post.data.tags.length > 0 && (
-          <span class="ml-2 text-cobalt">
-            {post.data.tags.map((tag) => <span class="mr-1.5">#{tag}</span>)}
-          </span>
-        )}
+        {
+          post.data.tags.length > 0 && (
+            <span class="ml-2 text-cobalt">
+              {post.data.tags.map((tag) => (
+                <span class="mr-1.5">#{tag}</span>
+              ))}
+            </span>
+          )
+        }
       </p>
       <h1 transition:name={`post-title-${post.id}`} class="text-3xl font-bold tracking-tight">
         {post.data.title}
@@ -37,8 +41,10 @@ const { Content } = await render(post);
         <span aria-hidden="true" class="absolute left-0 top-0 h-px w-16 bg-shu"></span>
       </div>
     </header>
-    {/* 記事本文は typography プラグインの prose で整形。色は global.css の
-        prose 変数(light-dark トークン)が両テーマを解決する */}
+    {
+      /* 記事本文は typography プラグインの prose で整形。色は global.css の
+        prose 変数(light-dark トークン)が両テーマを解決する */
+    }
     <div class="prose max-w-none">
       <Content />
     </div>

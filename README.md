@@ -25,23 +25,23 @@ bun install
 
 ## 開発コマンド
 
-| コマンド | 内容 |
-| :-- | :-- |
+| コマンド                 | 内容                                                                              |
+| :----------------------- | :-------------------------------------------------------------------------------- |
 | `astro dev --background` | 開発サーバーをバックグラウンドで起動(`astro dev stop` / `status` / `logs` で管理) |
-| `bun run build` | 本番ビルド(`dist/` 出力)。型・スキーマ検証を兼ねるため、変更後は必ず実行する |
-| `bun run preview` | ビルド結果をローカルで確認 |
+| `bun run build`          | 本番ビルド(`dist/` 出力)。型・スキーマ検証を兼ねるため、変更後は必ず実行する      |
+| `bun run preview`        | ビルド結果をローカルで確認                                                        |
 
 テスト・リンターは未導入。検証手段は `bun run build` の成功と開発サーバーでの目視確認です。
 
 ## ページ構成
 
-| パス | 内容 |
-| :-- | :-- |
-| `/` | トップ(自己紹介・実績ダイジェスト・最新記事) |
-| `/resume` | レジュメ(職務経歴・スキルセット) |
-| `/blog` | 記事一覧 |
-| `/blog/[slug]` | 記事詳細(Shiki によるコードハイライト) |
-| `/og/blog/[slug].png` | 記事 OGP 画像(ビルド時に自動生成) |
+| パス                  | 内容                                         |
+| :-------------------- | :------------------------------------------- |
+| `/`                   | トップ(自己紹介・実績ダイジェスト・最新記事) |
+| `/resume`             | レジュメ(職務経歴・スキルセット)             |
+| `/blog`               | 記事一覧                                     |
+| `/blog/[slug]`        | 記事詳細(Shiki によるコードハイライト)       |
+| `/og/blog/[slug].png` | 記事 OGP 画像(ビルド時に自動生成)            |
 
 ## 記事の書き方
 
@@ -83,17 +83,17 @@ docs/draft.md            # サイト仕様書(ドラフト)
 
 ## 技術スタック
 
-| 項目 | 選定 |
-| :-- | :-- |
-| フレームワーク | Astro 7.x(SSG、Content Collections + glob loader) |
-| コンテンツ | MDX(@astrojs/mdx)+ Zod による frontmatter 検証 |
-| スタイリング | Tailwind CSS 4.x(`@tailwindcss/vite`)+ @tailwindcss/typography |
-| コードハイライト | Shiki(ビルド時、ゼロ JS) |
-| OGP 画像 | astro-og-canvas(ビルド時に静的 PNG 生成) |
-| サイトマップ | @astrojs/sitemap |
-| TypeScript | `astro/tsconfigs/strict` 継承(strict モード) |
-| ランタイム / PM | Bun |
-| ホスティング | Cloudflare Pages(予定) |
+| 項目             | 選定                                                           |
+| :--------------- | :------------------------------------------------------------- |
+| フレームワーク   | Astro 7.x(SSG、Content Collections + glob loader)              |
+| コンテンツ       | MDX(@astrojs/mdx)+ Zod による frontmatter 検証                 |
+| スタイリング     | Tailwind CSS 4.x(`@tailwindcss/vite`)+ @tailwindcss/typography |
+| コードハイライト | Shiki(ビルド時、ゼロ JS)                                       |
+| OGP 画像         | astro-og-canvas(ビルド時に静的 PNG 生成)                       |
+| サイトマップ     | @astrojs/sitemap                                               |
+| TypeScript       | `astro/tsconfigs/strict` 継承(strict モード)                   |
+| ランタイム / PM  | Bun                                                            |
+| ホスティング     | Cloudflare Pages(予定)                                         |
 
 > **Note:** `astro.config.mjs` の `site: 'https://example.com'` は独自ドメイン確定までのプレースホルダです。sitemap / OGP / RSS の絶対 URL 生成に使われるため、ドメイン確定後に差し替えます。
 

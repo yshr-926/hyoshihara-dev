@@ -2,42 +2,48 @@
 import { getCollection } from 'astro:content';
 import Layout from '../../layouts/Layout.astro';
 
-const posts = (await getCollection('blog', ({ data }) => !data.draft))
-  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+const posts = (await getCollection('blog', ({ data }) => !data.draft)).sort(
+  (a, b) => b.data.date.valueOf() - a.data.date.valueOf(),
+);
 ---
 
 <Layout title="Blog — hyoshihara" description="技術記事の一覧">
   <div class="mb-8 flex items-baseline justify-between">
     <h1 class="text-2xl font-bold tracking-tight">Blog</h1>
     <p class="font-mono text-xs tracking-widest text-ink-muted">
-      {posts.length} {posts.length === 1 ? 'POST' : 'POSTS'}
+      {posts.length}
+      {posts.length === 1 ? 'POST' : 'POSTS'}
     </p>
   </div>
   <!-- 記事カード = 方眼の上に置かれた1枚のシート。ホバーでわずかに浮く -->
   <ul class="space-y-4">
-    {posts.map((post) => (
-      <li>
-        <a
-          href={`/blog/${post.id}`}
-          class="group block border border-line bg-surface px-5 py-4 transition-[background-color,border-color,translate,box-shadow] duration-200 ease-out-strong hover:-translate-y-0.5 hover:border-ink-muted hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt active:translate-y-0 active:duration-100"
-        >
-          <p class="font-mono text-xs text-ink-muted">
-            {post.data.date.toISOString().slice(0, 10)}
-            {post.data.tags.length > 0 && (
-              <span class="ml-2 text-cobalt">
-                {post.data.tags.map((tag) => <span class="mr-1.5">#{tag}</span>)}
-              </span>
-            )}
-          </p>
-          <h2
-            transition:name={`post-title-${post.id}`}
-            class="mt-1.5 text-lg font-semibold decoration-shu/50 underline-offset-4 group-hover:underline"
+    {
+      posts.map((post) => (
+        <li>
+          <a
+            href={`/blog/${post.id}`}
+            class="group block border border-line bg-surface px-5 py-4 transition-[background-color,border-color,translate,box-shadow] duration-200 ease-out-strong hover:-translate-y-0.5 hover:border-ink-muted hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt active:translate-y-0 active:duration-100"
           >
-            {post.data.title}
-          </h2>
-          <p class="mt-2 text-sm leading-relaxed text-ink-muted">{post.data.description}</p>
-        </a>
-      </li>
-    ))}
+            <p class="font-mono text-xs text-ink-muted">
+              {post.data.date.toISOString().slice(0, 10)}
+              {post.data.tags.length > 0 && (
+                <span class="ml-2 text-cobalt">
+                  {post.data.tags.map((tag) => (
+                    <span class="mr-1.5">#{tag}</span>
+                  ))}
+                </span>
+              )}
+            </p>
+            <h2
+              transition:name={`post-title-${post.id}`}
+              class="mt-1.5 text-lg font-semibold decoration-shu/50 underline-offset-4 group-hover:underline"
+            >
+              {post.data.title}
+            </h2>
+            <p class="mt-2 text-sm leading-relaxed text-ink-muted">{post.data.description}</p>
+          </a>
+        </li>
+      ))
+    }
   </ul>
 </Layout>

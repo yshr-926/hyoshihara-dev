@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 @plugin "@tailwindcss/typography";
 
 /* ============================================================
@@ -30,9 +30,10 @@
 
   /* 英数ラベル・日付・座標は Plex Mono。和文はシステムサンセリフ
      (CJK Webフォントはパフォーマンス要件により載せない) */
-  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --font-sans: system-ui, -apple-system, "Hiragino Kaku Gothic ProN",
-    "Hiragino Sans", "Yu Gothic UI", Meiryo, "Noto Sans JP", sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans:
+    system-ui, -apple-system, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'Yu Gothic UI', Meiryo,
+    'Noto Sans JP', sans-serif;
 }
 
 :root {
@@ -58,7 +59,10 @@
   }
 
   /* 見出しは行末バランス、本文は孤立行(orphan)を避ける */
-  h1, h2, h3, h4 {
+  h1,
+  h2,
+  h3,
+  h4 {
     text-wrap: balance;
   }
   p {
@@ -130,7 +134,8 @@
 }
 .prose a {
   text-decoration-color: color-mix(in srgb, var(--color-cobalt) 40%, transparent);
-  transition: color 200ms var(--ease-out-strong),
+  transition:
+    color 200ms var(--ease-out-strong),
     text-decoration-color 200ms var(--ease-out-strong);
 }
 .prose a:hover {

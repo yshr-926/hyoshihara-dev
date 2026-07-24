@@ -19,8 +19,7 @@ const posts = (await getCollection('blog', ({ data }) => !data.draft))
         </p>
         <p class="mt-5 leading-relaxed">
           {/* TODO: 代表実績ダイジェスト(2〜3件)・連絡先を実装フェーズで作り込む */}
-          「どこに・何を・どう置くか」。配置・経路・レイアウトの問題を数理最適化で解き、
-          AIエージェントとして現場で動くところまで実装しています。
+          「どこに・何を・どう置くか」。配置・経路・レイアウトの問題を数理最適化で解き、 AIエージェントとして現場で動くところまで実装しています。
         </p>
         <div class="mt-8 flex items-center gap-5">
           <a
@@ -61,14 +60,55 @@ const posts = (await getCollection('blog', ({ data }) => !data.draft))
           aria-label="ビンパッキング問題の最適解の図。5つの矩形が容器に無駄なく敷き詰められている"
         >
           <!-- 容器 -->
-          <rect x="23.5" y="23.5" width="193" height="145" class="stroke-ink-muted" stroke-width="1.5" />
+          <rect
+            x="23.5"
+            y="23.5"
+            width="193"
+            height="145"
+            class="stroke-ink-muted"
+            stroke-width="1.5"></rect>
           <!-- ブロック: 完全充填になる配置。fill はコバルト系の濃淡、最後の1個だけ朱 -->
           <g class="stroke-ink" stroke-opacity="0.25">
-            <rect class="fig-block fill-cobalt" fill-opacity="0.16" style="--dx:-48px" x="24" y="24" width="96" height="72" />
-            <rect class="fig-block fill-cobalt" fill-opacity="0.28" style="--dy:-44px; animation-delay:0.12s" x="120" y="24" width="96" height="72" />
-            <rect class="fig-block fill-cobalt" fill-opacity="0.1" style="--dy:44px; animation-delay:0.24s" x="24" y="96" width="72" height="72" />
-            <rect class="fig-block fill-cobalt" fill-opacity="0.22" style="--dx:-48px; --dy:44px; animation-delay:0.38s" x="96" y="96" width="72" height="72" />
-            <rect class="fig-block fill-shu" fill-opacity="0.85" style="--dx:56px; animation-delay:0.56s" x="168" y="96" width="48" height="72" />
+            <rect
+              class="fig-block fill-cobalt"
+              fill-opacity="0.16"
+              style="--dx:-48px"
+              x="24"
+              y="24"
+              width="96"
+              height="72"></rect>
+            <rect
+              class="fig-block fill-cobalt"
+              fill-opacity="0.28"
+              style="--dy:-44px; animation-delay:0.12s"
+              x="120"
+              y="24"
+              width="96"
+              height="72"></rect>
+            <rect
+              class="fig-block fill-cobalt"
+              fill-opacity="0.1"
+              style="--dy:44px; animation-delay:0.24s"
+              x="24"
+              y="96"
+              width="72"
+              height="72"></rect>
+            <rect
+              class="fig-block fill-cobalt"
+              fill-opacity="0.22"
+              style="--dx:-48px; --dy:44px; animation-delay:0.38s"
+              x="96"
+              y="96"
+              width="72"
+              height="72"></rect>
+            <rect
+              class="fig-block fill-shu"
+              fill-opacity="0.85"
+              style="--dx:56px; animation-delay:0.56s"
+              x="168"
+              y="96"
+              width="48"
+              height="72"></rect>
           </g>
           <!-- 注記(朱書き)。最後のピースが収まってから現れる -->
           <text
@@ -105,24 +145,26 @@ const posts = (await getCollection('blog', ({ data }) => !data.draft))
       </a>
     </div>
     <ul class="divide-y divide-line">
-      {posts.map((post) => (
-        <li>
-          <a
-            href={`/blog/${post.id}`}
-            class="group -mx-4 flex items-baseline gap-4 px-4 py-3 transition-[background-color,translate] duration-200 ease-out-strong hover:-translate-y-0.5 hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt active:translate-y-0 active:duration-100"
-          >
-            <span class="shrink-0 font-mono text-xs text-ink-muted">
-              {post.data.date.toISOString().slice(0, 10)}
-            </span>
-            <span
-              transition:name={`post-title-${post.id}`}
-              class="font-medium decoration-shu/50 underline-offset-4 group-hover:underline"
+      {
+        posts.map((post) => (
+          <li>
+            <a
+              href={`/blog/${post.id}`}
+              class="group -mx-4 flex items-baseline gap-4 px-4 py-3 transition-[background-color,translate] duration-200 ease-out-strong hover:-translate-y-0.5 hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt active:translate-y-0 active:duration-100"
             >
-              {post.data.title}
-            </span>
-          </a>
-        </li>
-      ))}
+              <span class="shrink-0 font-mono text-xs text-ink-muted">
+                {post.data.date.toISOString().slice(0, 10)}
+              </span>
+              <span
+                transition:name={`post-title-${post.id}`}
+                class="font-medium decoration-shu/50 underline-offset-4 group-hover:underline"
+              >
+                {post.data.title}
+              </span>
+            </a>
+          </li>
+        ))
+      }
     </ul>
   </section>
 </Layout>
