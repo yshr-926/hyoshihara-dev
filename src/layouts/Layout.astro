@@ -4,9 +4,14 @@ import '../styles/global.css';
 interface Props {
   title: string;
   description?: string;
+  /** OGP画像のパス(サイトルート基準、例: /og/blog/hello-world.png)。絶対URL化して出力する */
+  ogImage?: string;
 }
 
-const { title, description = '空間最適化 × AIエージェント開発' } = Astro.props;
+const { title, description = '空間最適化 × AIエージェント開発', ogImage } = Astro.props;
+
+// Astro.site が設定されていれば絶対URLに、なければ相対のまま
+const ogImageUrl = ogImage ? new URL(ogImage, Astro.site ?? Astro.url).href : undefined;
 ---
 
 <!doctype html>
@@ -17,10 +22,13 @@ const { title, description = '空間最適化 × AIエージェント開発' } =
     <meta name="generator" content={Astro.generator} />
     <title>{title}</title>
     <meta name="description" content={description} />
-    <!-- OGP は astro-og-canvas 等でビルド時に静的生成する予定(TODO) -->
+    <!-- OGP: 画像は astro-og-canvas でビルド時に静的生成(/og/blog/<slug>.png) -->
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
+    {ogImageUrl && <meta property="og:image" content={ogImageUrl} />}
+    {ogImageUrl && <meta name="twitter:card" content="summary_large_image" />}
+    {ogImageUrl && <meta name="twitter:image" content={ogImageUrl} />}
   </head>
   <body class="min-h-screen bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
     <header class="border-b border-neutral-200 dark:border-neutral-800">

@@ -25,3 +25,8 @@ pnpm-debug.log*
 
 # scratch
 dist/
+
+.claude/
+# astro-og-canvas のビルドキャッシュ
+.astro-og-canvas/
+node_modules/.astro-og-canvas/
