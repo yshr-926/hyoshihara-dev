@@ -1,6 +1,11 @@
 @import 'tailwindcss';
 @plugin "@tailwindcss/typography";
 
+/* ホバー演出のタッチ端末対策について:
+   Tailwind v4 は hover: / group-hover: を既定で @media (hover: hover) にラップするため、
+   タップで hover が誤発火する問題は素の hover: ユーティリティのままで防げている。
+   自前の @media ゲートを重ねる必要はない(生CSSで :hover を書くときだけ自分で包むこと)。 */
+
 /* ============================================================
    デザインコンセプト: 「図面」
    空間最適化を主題とするサイトなので、ページ自体を製図用紙に見立てる。
@@ -36,8 +41,16 @@
     'Noto Sans JP', sans-serif;
 }
 
+/* 既定はOS設定に追従。手動で選ばれたときだけ <html data-theme> が片方に固定し、
+   light-dark() の解決先がテーマ全体で切り替わる(色定義の重複は不要)。 */
 :root {
   color-scheme: light dark;
+}
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
 }
 
 @layer base {
@@ -112,6 +125,91 @@
   .site-header[data-scrolled] {
     border-bottom-color: light-dark(rgb(0 0 0 / 0.4), rgb(255 255 255 / 0.5));
   }
+}
+
+/* ============================================================
+   テーマ切り替えトグル。太陽 ⇄ 月 を同じ枠内でクロスさせる。
+   figure を差し替えるのではなく、太陽は縮んで回りながら消え、月は逆から現れる
+   ── 同じ天体が回って入れ替わるように見せる。transform/opacity のみでGPUに乗せる。
+   aria-pressed="true"(= ダーク)のときに月、それ以外は太陽。
+   ============================================================ */
+.theme-toggle svg > * {
+  transform-origin: center;
+  transition:
+    opacity 200ms var(--ease-out-strong),
+    transform 300ms var(--ease-out-strong);
+}
+.theme-toggle .theme-toggle__moon {
+  opacity: 0;
+  transform: rotate(-60deg) scale(0.6);
+}
+.theme-toggle[aria-pressed='true'] .theme-toggle__sun {
+  opacity: 0;
+  transform: rotate(60deg) scale(0.6);
+}
+.theme-toggle[aria-pressed='true'] .theme-toggle__moon {
+  opacity: 1;
+  transform: rotate(0) scale(1);
+}
+
+/* 動きを減らす設定では、回転・スケールをやめてフェードだけ残す
+   (どちらのモードかは色ではなく形で判別するので、opacity は必ず残す) */
+@media (prefers-reduced-motion: reduce) {
+  .theme-toggle .theme-toggle__moon,
+  .theme-toggle[aria-pressed='true'] .theme-toggle__sun {
+    transform: none;
+  }
+}
+
+/* ============================================================
+   テーマ切り替えのページ全体演出。小さな円が多数、重力で落下(ダーク化)
+   または上昇(ライト化)し、円が通過した跡が新テーマに塗り替わる。
+
+   実装は新テーマ側スナップショットへの clip-path。粒の帯と「通過済み」の
+   全塗りを「円 + 矩形の複合パス」ひとつにまとめ、JS(WAAPI)がパス全体の
+   平行移動(同構造・座標違いの 2 キーフレーム)だけをアニメーションする。
+   数値補間なので Chromium ではコンポジタに乗る。mask 系はどう組んでも
+   (mask-image 補間でも mask-position 補間でも)毎フレームのマスク再ペイント
+   が走り、33〜75ms/frame のコマ落ちを実測した(2026-07)。
+
+   UA 既定では old/new にクロスフェード + mix-blend-mode: plus-lighter が付き、
+   クリップの抜けと二重になって濁る・重なりが加算合成で白飛びするので、両方打ち消す。
+
+   セレクタを html[data-theme-switching] に限定しているのは、この打ち消しが
+   ページ遷移(ClientRouter)の View Transition にまで及ばないようにするため。
+   擬似要素ツリーの起点は :root なので、この複合セレクタで正しく出し分けできる。
+   属性はテーマ切り替え中だけ JS が付け外しする。
+   ============================================================ */
+/* テーマ切り替えは画面全体を「1 枚の紙」として塗り替える。
+   view-transition-name を持つ要素(transition:animate の main、記事タイトルの
+   transition:name、dev toolbar)が残っていると、それぞれが root から分離した
+   別グループ = 別の紙になり、雨に参加せず遷移終了時にパチンと切り替わる
+   (中央のコンテンツだけ取り残された「2 枚の紙芝居」に見える。実機で確認済み)。
+   キャプチャは属性が付いた後に行われるので、ここで子孫の名前を一括で外す。
+   !important はサイト側・Astro 生成スタイルのどちらにも勝たせるため。
+   html 自身(UA の view-transition-name: root)は子孫セレクタに含まれず残る。
+   ページ遷移時は属性が付かないので、タイトルの morph はそのまま生きる。 */
+html[data-theme-switching] * {
+  view-transition-name: none !important;
+}
+/* UA 既定のクロスフェードも要らない。ワイルドカード(*)でまとめて止める。
+   個別のフェードが残るとクリップの抜けと混ざってちらついて見えるため。 */
+html[data-theme-switching]::view-transition-group(*),
+html[data-theme-switching]::view-transition-old(*),
+html[data-theme-switching]::view-transition-new(*) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+/* 旧テーマを下に敷き、その上に新テーマをパスの内側だけ出す。
+   クリップは新テーマ側に当てる(パスの内側=そこだけ新テーマが見える)。 */
+html[data-theme-switching]::view-transition-old(root) {
+  z-index: 0;
+}
+html[data-theme-switching]::view-transition-new(root) {
+  z-index: 1;
+  /* クリップ本体(粒 + 全塗りのパス)は JS が WAAPI でこの疑似要素に直接当てる。
+     初期値は「まだどこにも粒が無い」= 何も見せない(ゼロ面積) */
+  clip-path: inset(50%);
 }
 
 /* 記事本文(prose)をインク/コバルト/朱のトークンに寄せる。

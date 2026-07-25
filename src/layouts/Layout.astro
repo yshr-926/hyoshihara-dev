@@ -16,10 +16,6 @@ const { title, description = '空間最適化 × AIエージェント開発', og
 // Astro.site が設定されていれば絶対URLに、なければ相対のまま
 const ogImageUrl = ogImage ? new URL(ogImage, Astro.site ?? Astro.url).href : undefined;
 
-// フッターの表題欄(図面のタイトルブロック)に入れるシート名。パスの先頭セグメントから導出
-const seg = Astro.url.pathname.split('/').filter(Boolean)[0];
-const sheet = seg ? seg.toUpperCase() : 'INDEX';
-
 // コンテンツ本体の遷移。ページ遷移は「たまに見る」ので演出OKだが、デフォルト(0.22s)より
 // 速く・強いイージングでキビキビさせる。新ページはわずかに下から入り、旧ページは上へ抜ける。
 // prefers-reduced-motion 時は ClientRouter が自動で無効化する。
@@ -50,6 +46,27 @@ const contentSwap = {
     {ogImageUrl && <meta property="og:image" content={ogImageUrl} />}
     {ogImageUrl && <meta name="twitter:card" content="summary_large_image" />}
     {ogImageUrl && <meta name="twitter:image" content={ogImageUrl} />}
+    {
+      /* テーマの復元は描画前(head内・同期)に行う。body描画後だと一瞬逆のテーマが見える(FOUC)。
+        色は light-dark() で解決されるので、:root の color-scheme を固定するだけで全色が切り替わる。
+        保存値がなければ color-scheme: light dark のままOS設定に追従する。
+
+        View Transitions は遷移のたびに <html> の属性を新ページのもので置き換えるため、
+        astro:after-swap(描画前に発火)で毎回張り直す。属性で持つのはこのため
+        (インラインスタイルだと同様に消えるうえ、書き戻しの取りこぼしが見た目に直結する)。 */
+    }
+    <script is:inline>
+      (() => {
+        const apply = () => {
+          const stored = localStorage.getItem('theme');
+          const root = document.documentElement;
+          if (stored === 'light' || stored === 'dark') root.dataset.theme = stored;
+          else delete root.dataset.theme;
+        };
+        apply();
+        document.addEventListener('astro:after-swap', apply);
+      })();
+    </script>
     <ClientRouter />
   </head>
   <body class="min-h-screen text-ink">
@@ -81,29 +98,50 @@ const contentSwap = {
               >BLOG</a
             >
           </li>
+          <li>
+            {
+              /* 図面の記号に寄せたトグル。太陽=中心点+放射線、月=欠けた円。
+                aria-pressed の true/false で「ダークモードが入っているか」を伝える。
+                描画前スクリプトでは色しか決まらないので、押下状態は下のスクリプトが同期する。 */
+            }
+            <button
+              id="theme-toggle"
+              type="button"
+              aria-pressed="false"
+              class="theme-toggle -my-1 -mr-1 grid size-7 place-items-center rounded-sm text-ink-muted transition-[color,transform] duration-200 ease-out-strong hover:text-shu active:scale-95 active:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
+            >
+              <span class="sr-only">ダークモード</span>
+              <svg
+                class="size-4"
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.25"
+                stroke-linecap="round"
+                aria-hidden="true"
+              >
+                {/* 太陽(ライト時に表示)。中心の円と8本の放射線 */}
+                <g class="theme-toggle__sun">
+                  <circle cx="10" cy="10" r="3.5"></circle>
+                  <path
+                    d="M10 2v2M10 16v2M2 10h2M16 10h2M4.34 4.34l1.42 1.42M14.24 14.24l1.42 1.42M15.66 4.34l-1.42 1.42M5.76 14.24l-1.42 1.42"
+                  ></path>
+                </g>
+                {/* 月(ダーク時に表示)。図面らしく単純な弧で描く */}
+                <path
+                  class="theme-toggle__moon"
+                  d="M15.5 12.4A6.5 6.5 0 0 1 7.6 4.5a6.5 6.5 0 1 0 7.9 7.9Z"></path>
+              </svg>
+            </button>
+          </li>
         </ul>
       </nav>
     </header>
     <main transition:animate={contentSwap} class="mx-auto max-w-3xl px-4 py-10">
       <slot />
     </main>
-    <!-- フッターは図面の表題欄(タイトルブロック)。PROJECT / SHEET は実情報、SCALE 1:1 はWebの実寸 -->
     <footer class="mx-auto max-w-3xl px-4 pb-10 pt-16">
-      <div class="grid grid-cols-3 border border-line bg-surface font-mono text-xs">
-        <div class="border-r border-line px-3 py-2.5">
-          <div class="text-[10px] tracking-widest text-ink-muted">PROJECT</div>
-          <div class="mt-1 text-ink">hyoshihara.dev</div>
-        </div>
-        <div class="border-r border-line px-3 py-2.5">
-          <div class="text-[10px] tracking-widest text-ink-muted">SHEET</div>
-          <div class="mt-1 text-ink">{sheet}</div>
-        </div>
-        <div class="px-3 py-2.5">
-          <div class="text-[10px] tracking-widest text-ink-muted">SCALE</div>
-          <div class="mt-1 text-ink">1 : 1</div>
-        </div>
-      </div>
-      <p class="mt-3 font-mono text-xs text-ink-muted">© 2026 hyoshihara</p>
+      <p class="border-t border-line pt-4 font-mono text-xs text-ink-muted">© 2026 hyoshihara</p>
     </footer>
     <script>
       // スクロールしてコンテンツがヘッダーに重なったときだけ罫線を出す(scroll edge effect)。
@@ -113,6 +151,312 @@ const contentSwap = {
       update();
       window.addEventListener('scroll', update, { passive: true });
       document.addEventListener('astro:page-load', update);
+
+      // ダークモードの切り替え。テーマ本体(<html data-theme>)は head のインラインスクリプトが
+      // 描画前に張るので、ここはクリックの反転とアイコンの押下状態の同期だけを受け持つ。
+      const root = document.documentElement;
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
+
+      // ボタンは毎回DOMから引き直す。transition:persist でヘッダーは残るが、
+      // 遷移をまたいで同じノードである保証はないため、参照を握ると同期が空振りする。
+      const themeButton = () => document.getElementById('theme-toggle');
+
+      // クリック済みだが startViewTransition のキャプチャ待ちで DOM 未適用のテーマ。
+      // コールバックは非同期に走るため、data-theme だけを見てトグルを計算すると
+      // 適用前の再クリックが古い値から同じテーマを導いてしまい、切り替えが空振りする。
+      let pendingTheme = null;
+
+      // 現在のテーマ。クリック時点の意図 > 明示指定(data-theme)> OS設定。
+      const current = () =>
+        pendingTheme ?? root.dataset.theme ?? (prefersDark.matches ? 'dark' : 'light');
+
+      const syncToggle = () =>
+        themeButton()?.setAttribute('aria-pressed', String(current() === 'dark'));
+      syncToggle();
+
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+      const applyTheme = (next) => {
+        pendingTheme = null;
+        root.dataset.theme = next;
+        localStorage.setItem('theme', next);
+        syncToggle();
+      };
+
+      // 落下する円。ダーク化は上から下へ、ライト化は下から上へ(向きを反転)。
+      // 実装は新テーマ側スナップショットへの clip-path(円 + 矩形の複合パス)で、
+      // from/to の 2 キーフレームだけを渡す。同構造・座標違いのパスは座標ごとに
+      // 数値補間されるため、形状ごとに移動量が違っても 2 枚で表現でき、
+      // Chromium / WebKit ともコンポジタに乗ってコマ落ちしない。mask 系はどう組んでも
+      // (mask-image 補間でも mask-position 補間でも)毎フレームのマスク再ペイントが
+      // 走り、33〜75ms/frame のコマ落ちを実測した(2026-07、1440×900)。
+      //
+      // 絵の主役は、膨らみながらばらばらの速さで舞い降りる粒の雨。
+      // 「塗りの前線」を絵として見せてはいけない ── 前線がベタの境界線として
+      // 画面を横切ると、上下 2 枚の紙が入れ替わる紙芝居にしか見えない(実機で確認済み)。
+      //  - 雨粒: 画面外の帯から個別の速度で落ち、落ちながら膨らむ(半径も from/to で
+      //    補間される)。粒の重なりと膨張が画面の大半を覆う
+      //  - 前線: 全塗り矩形 + 縁を崩す少数の粒。画面のはるか上から出発して
+      //    終盤に一気に駆け抜ける「見えない保険」。境界線として滞留せず、
+      //    塗り残しだけを確定させる
+      //
+      // 粒の大きさ・横の間隔は px の絶対値で持つ(画面比にしない)。雨粒は窓の
+      // 大きさで大きくならない。高さ比の半径は、正方形〜縦長の窓で列間隔
+      // (幅 ÷ 列数)を大きく跨いで隣の粒と融合し、雨ではなく「もこもこの幕」に
+      // 化ける(1005×1049 の実機で確認)。縦方向の配置・移動だけを画面高さ比で持つ。
+      const RAIN_PITCH = 110; // 粒の横ピッチ(px)。列数 = 幅 ÷ これ
+      const RAIN_ROWS = 13; // 列あたりの粒数。粒総数 = 列数 × これ(上限つき)
+      const RAIN_R_MIN = 16; // 粒の初期半径(px)
+      const RAIN_R_MAX = 36;
+      const RAIN_SPREAD = 0.85; // 雨粒を散らす画面外の帯の深さ(画面高さ比)
+      const RAIN_TRAVEL_MIN = 0.5; // 雨粒の移動距離(画面高さ比)。時間でなく距離で持つと
+      const RAIN_TRAVEL_MAX = 1.1; // DROP_MS を変えても絵の構図が崩れない
+      const RAIN_SWELL = 1.4; // 落下中の膨張率の下限(上限は +0.4)。墨が滲んで広がる
+      const FRONT_LEAD = 2.0; // 前線の開始位置(画面上端からの距離、画面高さ比)。
+      // 遠いほど前線の登場が遅く・通過が速くなる。滞留する境界線を作らないための距離
+      const FRONT_SCATTER = 0.12; // 前線粒を縁からどこまで先行させるか(画面高さ比)
+      // UI としては長め。ただしテーマ切替は稀な操作で、画面全体が描き変わる説明的な
+      // 演出なので modal/drawer の上限(500ms)よりは踏み込む。体感を変えたいときはまずここ
+      const DROP_MS = 640;
+      // 前線が画面下端を通り越す量(px)。終端で「ちょうど覆う」を狙うと誤差で塗り残しが出る
+      const OVERSHOOT = 24;
+
+      // クリップパスを作る。新テーマ側に当てるので、パスの内側だけ新テーマが見える。
+      // すべてダーク化(下向き)の座標系で「開始 y0 / 終了 y1」を組み立て、
+      // ライト化は最後に上下を鏡像にする(y0/y1 の両方を反転すれば向きも自動で逆になる)。
+      const buildDropClip = (w, h, down) => {
+        const columns = Math.max(6, Math.round(w / RAIN_PITCH));
+        const rainCount = Math.min(210, columns * RAIN_ROWS);
+        const shapes = [];
+        for (let i = 0; i < rainCount; i++) {
+          // x は列に分けたうえで揺らし、縦の筋にならないようにする。決定的な擬似乱数に
+          // せず Math.random を使う(演出なので再現性は不要)
+          const col = i % columns;
+          const x = ((col + 0.5) / columns + (Math.random() - 0.5) / columns) * w;
+          // 粒は小さめに始める。大きいと数フレームで画面を覆いきってしまい、
+          // 「降ってくる過程」が見えないまま切り替わる。覆うのは終盤の膨張と前線の仕事
+          const r0 = RAIN_R_MIN + Math.random() * (RAIN_R_MAX - RAIN_R_MIN);
+          const r1 = r0 * (RAIN_SWELL + Math.random() * 0.4);
+          // 3 個に 1 個は上端のすぐ外に置き、押した直後から降り始めて見せる。
+          // 残りは深い帯に散らして「降り続けている」時間を作る
+          const depth =
+            i % 3 === 0 ? Math.random() * 0.12 : 0.12 + Math.random() * (RAIN_SPREAD - 0.12);
+          const y0 = -r0 - depth * h;
+          const travel =
+            (RAIN_TRAVEL_MIN + Math.random() * (RAIN_TRAVEL_MAX - RAIN_TRAVEL_MIN)) * h;
+          shapes.push({ x, r0, r1, y0, y1: y0 + travel });
+        }
+        // 前線。塗りの下端が画面上端の FRONT_LEAD 手前から出発し、終了時に画面下端を越える。
+        // 終端で画面ちょうどに着地させてはいけない。パスの丸め(toFixed)・DPR 端数・
+        // スナップショット高さと innerHeight のズレが積もって旧テーマの細い帯が残り、
+        // 疑似要素が畳まれた瞬間にそれが消えて「最後だけチラつく」原因になる。
+        // 対策は 2 つ一組で、どちらか片方では足りない(実測で確認):
+        //  - 移動量に OVERSHOOT を足す(ここ)。進行方向の縁を越えさせる
+        //  - 矩形を上下に 2*OVERSHOOT ずつ大きく取る(pathFor 側)。高さが h ちょうどだと、
+        //    進行方向へ越えさせたぶん後ろの縁が画面内に降りてきて、塗り残しが
+        //    反対側へ移るだけになる。逆に移動量を増やしすぎても同じことが起きるので、
+        //    「移動は控えめ・矩形を大きく」の配分にする。
+        // 結果、終端では進行側に 3*OVERSHOOT、進入側に OVERSHOOT の余裕が残る
+        const frontY0 = -FRONT_LEAD * h;
+        const frontTravel = h + FRONT_LEAD * h + OVERSHOOT;
+        const frontCount = columns; // 縁の粒は列と同じ密度で幅に追従させる
+        for (let i = 0; i < frontCount; i++) {
+          const x = ((i + 0.5) / frontCount + (Math.random() - 0.5) / frontCount) * w;
+          const r = 44 + Math.random() * 36;
+          // 縁の近くに密、先行方向にまばら(√で偏らせる)。わずかな食い込みは
+          // 塗りから突き出た半円として縁のギザギザを作る
+          const ahead = FRONT_SCATTER * (1 - Math.sqrt(Math.random())) * h;
+          const y0 = frontY0 - ahead + Math.random() * 0.05 * h;
+          shapes.push({ x, r0: r, r1: r, y0, y1: y0 + frontTravel });
+        }
+        // 全塗り矩形は中心で持つ(上下鏡像の変換が単純になる)
+        shapes.push({
+          rect: true,
+          x: 0,
+          r0: 0,
+          r1: 0,
+          y0: frontY0 - h / 2,
+          y1: frontY0 - h / 2 + frontTravel,
+        });
+
+        // 円は 2 本の半円弧、全塗りは矩形ひとつ。既定の fill-rule(nonzero)で
+        // 全図形の和として抜けるように、巻き方向は矩形(時計回り)と揃えて
+        // sweep=1 で描く。逆巻きだと重なった領域の巻き数が相殺してゼロになり、
+        // 塗りに飲み込まれた粒が「旧テーマの丸い穴」として抜けてしまう
+        const flip = down ? (y) => y : (y) => h - y;
+        const pathFor = (end) => {
+          let d = '';
+          for (const s of shapes) {
+            const cy = flip(s[`y${end}`]);
+            if (s.rect) {
+              // 矩形は画面より上下 2*OVERSHOOT・左右 OVERSHOOT だけ大きく取る。
+              // 高さを h ちょうどにすると、終端で下端を越えさせたぶん上端が内側に
+              // 降りてきて塗り残しが反対の縁へ移る(1440×900 実測で上 24px の帯)。
+              // 幅の張り出しは、スナップショット幅が innerWidth と一致しない場合の保険
+              const half = h / 2 + 2 * OVERSHOOT;
+              d += `M ${-OVERSHOOT} ${(cy - half).toFixed(1)} H ${w + OVERSHOOT} V ${(cy + half).toFixed(1)} H ${-OVERSHOOT} Z `;
+            } else {
+              const r = s[`r${end}`];
+              const cyf = +cy.toFixed(1);
+              const cr = +r.toFixed(1);
+              const right = +(s.x + r).toFixed(1);
+              const left = +(s.x - r).toFixed(1);
+              d += `M ${right} ${cyf} A ${cr} ${cr} 0 1 1 ${left} ${cyf} A ${cr} ${cr} 0 1 1 ${right} ${cyf} Z `;
+            }
+          }
+          return `path('${d.trim()}')`;
+        };
+        return { from: pathFor(0), to: pathFor(1) };
+      };
+
+      // 走行中の落下アニメ。連打で二重に走らないよう、新しい方が始まる前に畳む
+      let dropAnim = null;
+
+      // 進行中のテーマ切り替えの本数。data-theme-switching は「最後の 1 本が
+      // 終わったとき」だけ外す。連打すると古い transition が中断されて finished が
+      // 先に解決するため、単純に外すと後発の演出が走っている最中に属性が消え、
+      // UA 既定のクロスフェードを打ち消すセレクタが効かなくなる
+      // (連打で疑似要素 12 本が無防備になるのを実測)
+      let switchingCount = 0;
+
+      // 紙芝居判定が連続した回数。2 回連続したら以降の演出を省き、正常に完走できたら
+      // リセットする。1 回で恒久オフにすると、ブラウザ起動直後の一時的なもたつきを
+      // 誤検出しただけで演出がセッション中ずっと出なくなってしまう
+      let degradedStrikes = 0;
+
+      // 実効フレームレートの見張り。GPU 合成が無効な環境や、合成が実質数 fps まで
+      // 落ちる環境では、どんな演出も数枚の紙芝居になる(大画面 + 合成オフの実測で
+      // 640ms 中 10 フレーム弱)。その劣化は rAF の間隔にも同じように現れるので、
+      // 走り出しで検出したら演出を最終状態へ飛ばして即座に切り替える
+      // (reduced-motion と同じ最終状態)。閾値は健全環境の実測(8〜19ms、
+      // 起動直後にまれに 30ms 台)を跨がないよう「55ms 超が 2 回」とする
+      const watchFrameHealth = (anim, onDegraded) => {
+        let last = null;
+        let slow = 0;
+        let checks = 0;
+        const tick = (t) => {
+          if (anim.playState !== 'running') return; // 完了・キャンセル・一時停止で手を引く
+          if (last !== null && t - last > 55) slow++;
+          last = t;
+          if (slow >= 2) {
+            onDegraded();
+            anim.finish(); // fill: forwards の最終状態 = 全面新テーマへスナップして即完了
+            return;
+          }
+          if (++checks < 8) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      };
+
+      // 落下アニメを WAAPI で流し、終わったら解決する Promise を返す。
+      // キーフレームは from/to の 2 枚だけで、あいだはブラウザの補間に任せる。
+      // このアニメが疑似要素の寿命そのものになる。View Transition の疑似要素は
+      // 走っているアニメーションが無くなった時点で畳まれるため、
+      // UA 既定を animation:none で消している以上、これが唯一の生存理由になる。
+      const runDrops = (clip, down) => {
+        const anim = root.animate([{ clipPath: clip.from }, { clipPath: clip.to }], {
+          duration: DROP_MS,
+          // 方向で意味が違うので easing も変える。
+          // 落下(ダーク化)は重力で加速していく = ease-in。ゆっくり垂れ始めて最後に落ちきる。
+          // 上昇(ライト化)は下から勢いよく湧いて減速する = ease-out。出だしが速い。
+          // 同じカーブを両方向に使うと、片方が必ず物理的に不自然になる。
+          // カーブは強くしすぎない。極端な ease-in は「押しても何も起きない時間」を作り、
+          // 極端な ease-out は序盤で終わって残りが死に時間になる。
+          easing: down ? 'cubic-bezier(0.4, 0.1, 0.7, 0.75)' : 'cubic-bezier(0.3, 0.45, 0.45, 1)',
+          fill: 'forwards',
+          pseudoElement: '::view-transition-new(root)',
+        });
+        dropAnim = anim;
+        let guarded = false;
+        watchFrameHealth(anim, () => {
+          guarded = true;
+          degradedStrikes++;
+        });
+
+        return anim.finished
+          .then(() => {
+            // 見張りに畳まれず完走できたなら、環境は健全 → 劣化カウントを戻す
+            if (!guarded) degradedStrikes = 0;
+          })
+          .catch(() => {}); // cancel() された場合は演出の取りこぼしとして流す
+        // ここで anim.cancel() をしてはいけない。fill: forwards が保っている
+        // 「全面を覆うクリップ」が即座に失われ、clip-path が CSS 初期値の
+        // inset(50%)(ゼロ面積)へ巻き戻る。その瞬間 new(root) が何も見せなくなり、
+        // 下に敷いた old(root) = 旧テーマが全面に露出してから疑似要素が畳まれるため、
+        // 「最後に一度リセットされて改めて切り替わる」フラッシュになる
+        // (t=650 で path(...)、t=659 で inset(50%) に戻るのを実測)。
+        // 破棄は疑似要素が畳まれ切ったあと(transition.finished)にまとめて行う。
+      };
+
+      // クリックは document 側で受ける(委譲)。ボタンが差し替わってもリスナーが外れない。
+      document.addEventListener('click', (e) => {
+        if (!(e.target instanceof Element)) return;
+        const button = e.target.closest('#theme-toggle');
+        if (!button) return;
+
+        const next = current() === 'dark' ? 'light' : 'dark';
+
+        // 落下は WAAPI で直接流すため、CSS の reduced-motion 一括ルールでは止まらない。
+        // 未対応ブラウザ・描画が遅すぎる環境ともども、演出を挟まず即座に切り替える。
+        if (!document.startViewTransition || reduceMotion.matches || degradedStrikes >= 2) {
+          applyTheme(next);
+          return;
+        }
+
+        // 落下中に再度押されたら、走っている演出を畳んでから新しい方を始める。
+        // 放置すると古い方の疑似要素が残り、粒が二重に見える。
+        if (dropAnim) dropAnim.cancel();
+
+        // キャプチャが始まる前に済ませておくこと:
+        //  - トグルの押下状態は先に反転する(pendingTheme を syncToggle が拾う)。
+        //    ダーク化はヘッダーから塗り替わるので、押した瞬間の反応として効く
+        //  - クリップパスの生成もここで行う。ready 後に回すと生成〜パースのブロックが
+        //    演出の頭に食い込み、出だしでコマが飛ぶ
+        pendingTheme = next;
+        syncToggle();
+        // ダーク化は落下、ライト化は上昇。行き先のテーマで重力の向きを決める
+        const down = next === 'dark';
+        const clip = buildDropClip(window.innerWidth, window.innerHeight, down);
+
+        switchingCount++;
+        root.dataset.themeSwitching = '';
+        const transition = document.startViewTransition(() => applyTheme(next));
+
+        transition.ready
+          .then(() => runDrops(clip, down))
+          // 遷移中にもう一度押すと先行の transition が AbortError で中断される。
+          // テーマ自体は適用済みなので、演出の取りこぼしとして黙って流す。
+          .catch(() => {});
+
+        // data-theme-switching を外すのは transition.finished を待ってから。
+        // この属性は UA 既定のクロスフェード(::view-transition-*)を打ち消す
+        // セレクタの条件そのものなので、疑似要素が生きているうちに外すと
+        // 打ち消しが解けて既定のフェードが息を吹き返し、演出の直後に
+        // 画面全体がもう一度切り替わって見える(落下完了 → 属性削除の時点で
+        // 疑似要素アニメが 5 本復活するのを実測)。
+        // finished は疑似要素が畳まれ切ってから解決するので、ここが安全な外し時。
+        // ただし外すのは自分が最後の 1 本のときだけ(連打対策、switchingCount 参照)。
+        transition.finished
+          .catch(() => {}) // 連打で中断された場合も後始末は同じ
+          .finally(() => {
+            if (--switchingCount === 0) delete root.dataset.themeSwitching;
+            // 落下アニメの破棄もここまで待つ。fill: forwards の残骸は
+            // getAnimations() に積まれるので捨てたいが、疑似要素が生きているうちに
+            // cancel すると最終状態のクリップが失われて旧テーマがフラッシュする。
+            // 疑似要素が畳まれ切った今なら、破棄しても見た目には影響しない
+            const done = dropAnim;
+            if (done) {
+              done.cancel();
+              if (dropAnim === done) dropAnim = null;
+            }
+          });
+      });
+
+      // 遷移後は <html> の属性が張り直された直後なので、アイコンも合わせ直す
+      document.addEventListener('astro:after-swap', syncToggle);
+      document.addEventListener('astro:page-load', syncToggle);
+      // 未指定(OS追従)のあいだは、OS側の変更にアイコンを追従させる
+      prefersDark.addEventListener('change', () => !localStorage.getItem('theme') && syncToggle());
     </script>
   </body>
 </html>

@@ -4,12 +4,6 @@ import Layout from '../layouts/Layout.astro';
 // コンテンツの出典: docs/content-input.md 2章(レジュメ)
 // 社内固有名は伏せ、「何を解決したか」ベースで記述する(draft.md 3.2)
 
-const profile = [
-  { label: 'ROLE', value: 'AIエンジニア' },
-  { label: 'BASE', value: '東京' },
-  { label: 'STATUS', value: '正社員' },
-];
-
 const career = [
   {
     company: 'HEROZ株式会社',
@@ -77,20 +71,9 @@ const education = [
   title="Resume — hyoshihara"
   description="Hiroto Yoshihara(AIエンジニア)の職務経歴とスキルセット。探索・最適化アルゴリズムとLLM活用(RAG・評価基盤)"
 >
-  <!-- 冒頭は図面の表題欄(タイトルブロック)。フッターの表題欄と対になる -->
   <header class="mt-4 sm:mt-8">
     <p class="font-mono text-xs tracking-widest text-ink-muted">RESUME</p>
     <h1 class="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Hiroto Yoshihara</h1>
-    <dl class="mt-8 grid grid-cols-3 border border-line bg-surface font-mono text-xs">
-      {
-        profile.map((item, i) => (
-          <div class:list={['px-3 py-2.5', i < profile.length - 1 && 'border-r border-line']}>
-            <dt class="text-[10px] tracking-widest text-ink-muted">{item.label}</dt>
-            <dd class="mt-1 text-ink">{item.value}</dd>
-          </div>
-        ))
-      }
-    </dl>
   </header>
 
   <!-- 職務経歴 -->
