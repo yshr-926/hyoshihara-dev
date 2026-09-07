@@ -1,49 +1,39 @@
 ---
 import { getCollection } from 'astro:content';
 import Layout from '../../layouts/Layout.astro';
+import PostCard from '../../components/blog/PostCard.astro';
 
+// 下書き(draft: true)は常に除外し、日付の降順で並べる
 const posts = (await getCollection('blog', ({ data }) => !data.draft)).sort(
   (a, b) => b.data.date.valueOf() - a.data.date.valueOf(),
 );
 ---
 
-<Layout title="Blog — hyoshihara" description="技術記事の一覧">
-  <div class="mb-8 flex items-baseline justify-between">
-    <h1 class="text-2xl font-bold tracking-tight">Blog</h1>
-    <p class="font-mono text-xs tracking-widest text-ink-muted">
-      {posts.length}
-      {posts.length === 1 ? 'POST' : 'POSTS'}
+<Layout
+  title="記事 — hyoshihara"
+  description="探索・最適化アルゴリズムと RAG・LLM 評価に関する技術記事"
+>
+  <header class="mt-4 sm:mt-8">
+    <p class="label-mono" aria-hidden="true">BLOG</p>
+    <h1 class="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">記事</h1>
+    <p class="mt-3 text-sm leading-list text-ink-muted">
+      探索・最適化アルゴリズムと RAG・LLM 評価について書いています。
     </p>
-  </div>
-  <!-- 記事カード = 方眼の上に置かれた1枚のシート。ホバーでわずかに浮く -->
-  <ul class="space-y-4">
+  </header>
+
+  <section aria-label="記事一覧" class="mt-10">
     {
-      posts.map((post) => (
-        <li>
-          <a
-            href={`/blog/${post.id}`}
-            class="group block border border-line bg-surface px-5 py-4 transition-[background-color,border-color,translate,box-shadow] duration-200 ease-out-strong hover:-translate-y-0.5 hover:border-ink-muted hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt active:translate-y-0 active:duration-100"
-          >
-            <p class="font-mono text-xs text-ink-muted">
-              {post.data.date.toISOString().slice(0, 10)}
-              {post.data.tags.length > 0 && (
-                <span class="ml-2 text-cobalt">
-                  {post.data.tags.map((tag) => (
-                    <span class="mr-1.5">#{tag}</span>
-                  ))}
-                </span>
-              )}
-            </p>
-            <h2
-              transition:name={`post-title-${post.id}`}
-              class="mt-1.5 text-lg font-semibold decoration-shu/50 underline-offset-4 group-hover:underline"
-            >
-              {post.data.title}
-            </h2>
-            <p class="mt-2 text-sm leading-relaxed text-ink-muted">{post.data.description}</p>
-          </a>
-        </li>
-      ))
+      posts.length > 0 ? (
+        <ul class="space-y-4">
+          {posts.map((post) => (
+            <li>
+              <PostCard post={post} />
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p class="text-sm leading-list text-ink-muted">公開記事はまだありません。</p>
+      )
     }
-  </ul>
+  </section>
 </Layout>

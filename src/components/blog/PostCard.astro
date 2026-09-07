@@ -1,0 +1,41 @@
+---
+import type { CollectionEntry } from 'astro:content';
+
+interface Props {
+  post: CollectionEntry<'blog'>;
+}
+
+const { post } = Astro.props;
+const { title, description, date, tags } = post.data;
+const isoDate = date.toISOString().slice(0, 10);
+---
+
+{
+  /* 記事カード = 方眼の上に置かれた1枚のシート。タイトル → 概要 → 日付・タグ の順(タイトル優先)。
+    ホバーの浮き上がりは translate だけをアニメーションし、影は即時に切り替える(box-shadow は GPU に乗らないため) */
+}
+<a
+  href={`/blog/${post.id}`}
+  class="group block border border-line bg-surface px-5 py-4 transition-[background-color,border-color,translate] duration-200 ease-out-strong hover:-translate-y-0.5 hover:border-ink-muted hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt active:translate-y-0 active:duration-100"
+>
+  <h2
+    transition:name={`post-title-${post.id}`}
+    class="text-lg font-semibold tracking-tight decoration-cobalt/40 underline-offset-4 group-hover:underline"
+  >
+    {title}
+  </h2>
+  <p class="mt-2 text-sm leading-relaxed text-ink-muted">{description}</p>
+  <p class="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs text-ink-muted">
+    {/* 日付だけ等幅。タグは本文フォント(和文混在の可能性があるため) */}
+    <time datetime={isoDate} class="font-mono">{isoDate}</time>
+    {
+      tags.length > 0 && (
+        <span class="flex flex-wrap gap-x-2 text-cobalt">
+          {tags.map((tag) => (
+            <span>#{tag}</span>
+          ))}
+        </span>
+      )
+    }
+  </p>
+</a>

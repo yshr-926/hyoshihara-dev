@@ -7,14 +7,12 @@
    自前の @media ゲートを重ねる必要はない(生CSSで :hover を書くときだけ自分で包むこと)。 */
 
 /* ============================================================
-   デザインコンセプト: 「図面」
-   空間最適化を主題とするサイトなので、ページ自体を製図用紙に見立てる。
-   - 地: 方眼のトレース紙(明) / 夜の青図(暗)
+   デザインコンセプト: 「図面」を薄く残す
+   - 地: ごく薄い方眼(明はトレース紙、暗は青図)。本文の可読性を優先し、飾りは控えめにする
    - インク: 藍鼠(プルシアンブルー寄りの墨色)
    - リンク: 青図のコバルト
-   - 強調: 朱書きの朱(図面の校正・押印の色)。使いどころは絞る
-   色はすべて light-dark() で両テーマを一元管理する
-   (:root の color-scheme: light dark が前提)。
+   - 朱: ナビの現在地・ワードマークの角印・セクション罫線左端の短い朱に限定する
+   色はすべて light-dark() で両テーマを一元管理する(:root の color-scheme: light dark が前提)。
    ============================================================ */
 
 @theme {
@@ -39,6 +37,11 @@
   --font-sans:
     system-ui, -apple-system, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'Yu Gothic UI', Meiryo,
     'Noto Sans JP', sans-serif;
+
+  /* 行間はページの役割で使い分ける(--leading-* は leading-article / leading-list ユーティリティになる)。
+     和文の長文は欧文より広めが読みやすい。リスト・カードは詰めて一覧性を優先する */
+  --leading-article: 1.85;
+  --leading-list: 1.6;
 }
 
 /* 既定はOS設定に追従。手動で選ばれたときだけ <html data-theme> が片方に固定し、
@@ -54,7 +57,7 @@
 }
 
 @layer base {
-  /* 方眼: 24pxの細罫 + 96pxごとの太罫。本文の可読性を守るためごく薄く敷く */
+  /* 方眼: 24pxの細罫 + 96pxごとの太罫。装飾は薄く残す方針なので、読める範囲のごく薄い濃さに留める */
   body {
     background-color: var(--color-paper);
     background-image:
@@ -67,8 +70,8 @@
       96px 96px,
       24px 24px,
       24px 24px;
-    --grid-major: light-dark(rgb(31 46 58 / 0.07), rgb(219 228 236 / 0.06));
-    --grid-minor: light-dark(rgb(31 46 58 / 0.04), rgb(219 228 236 / 0.03));
+    --grid-major: light-dark(rgb(31 46 58 / 0.04), rgb(219 228 236 / 0.034));
+    --grid-minor: light-dark(rgb(31 46 58 / 0.02), rgb(219 228 236 / 0.017));
   }
 
   /* 見出しは行末バランス、本文は孤立行(orphan)を避ける */
@@ -89,6 +92,34 @@
   /* テキスト選択も朱書きに揃える */
   ::selection {
     background: light-dark(rgb(196 58 30 / 0.22), rgb(240 105 63 / 0.32));
+  }
+}
+
+/* ============================================================
+   共通コンポーネント。utilities レイヤーより前に置くので、
+   `sheet p-0` / `label-mono text-shu` のようにユーティリティで上書きできる。
+   ============================================================ */
+@layer components {
+  /* 紙の面。方眼は余白では見せ、読む領域(記事本文・要点)では
+     この不透明な面で隠して罫線と文字の競合をなくす。
+     見た目は `bg-surface border border-line` と同じ系統で、内側余白だけ足している。
+     余白は --sheet-pad で持つので、子要素の bleed(負マージン)にも使える。 */
+  .sheet {
+    --sheet-pad: clamp(1rem, 2vw + 0.5rem, 2rem);
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-line);
+    padding: var(--sheet-pad);
+  }
+
+  /* 見出しの等幅小ラベル(CAREER / ARTICLES など)。読める最小サイズの 12px に固定する
+     (10px は使わない)。日本語の意味説明はこのクラスの外(隣の h2 など)に書く。
+     セクションラベルは装飾なので aria-hidden="true" を付け、隣の見出しだけを読ませる */
+  .label-mono {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    line-height: 1.333;
+    letter-spacing: 0.1em;
+    color: var(--color-ink-muted);
   }
 }
 
@@ -127,91 +158,6 @@
   }
 }
 
-/* ============================================================
-   テーマ切り替えトグル。太陽 ⇄ 月 を同じ枠内でクロスさせる。
-   figure を差し替えるのではなく、太陽は縮んで回りながら消え、月は逆から現れる
-   ── 同じ天体が回って入れ替わるように見せる。transform/opacity のみでGPUに乗せる。
-   aria-pressed="true"(= ダーク)のときに月、それ以外は太陽。
-   ============================================================ */
-.theme-toggle svg > * {
-  transform-origin: center;
-  transition:
-    opacity 200ms var(--ease-out-strong),
-    transform 300ms var(--ease-out-strong);
-}
-.theme-toggle .theme-toggle__moon {
-  opacity: 0;
-  transform: rotate(-60deg) scale(0.6);
-}
-.theme-toggle[aria-pressed='true'] .theme-toggle__sun {
-  opacity: 0;
-  transform: rotate(60deg) scale(0.6);
-}
-.theme-toggle[aria-pressed='true'] .theme-toggle__moon {
-  opacity: 1;
-  transform: rotate(0) scale(1);
-}
-
-/* 動きを減らす設定では、回転・スケールをやめてフェードだけ残す
-   (どちらのモードかは色ではなく形で判別するので、opacity は必ず残す) */
-@media (prefers-reduced-motion: reduce) {
-  .theme-toggle .theme-toggle__moon,
-  .theme-toggle[aria-pressed='true'] .theme-toggle__sun {
-    transform: none;
-  }
-}
-
-/* ============================================================
-   テーマ切り替えのページ全体演出。小さな円が多数、重力で落下(ダーク化)
-   または上昇(ライト化)し、円が通過した跡が新テーマに塗り替わる。
-
-   実装は新テーマ側スナップショットへの clip-path。粒の帯と「通過済み」の
-   全塗りを「円 + 矩形の複合パス」ひとつにまとめ、JS(WAAPI)がパス全体の
-   平行移動(同構造・座標違いの 2 キーフレーム)だけをアニメーションする。
-   数値補間なので Chromium ではコンポジタに乗る。mask 系はどう組んでも
-   (mask-image 補間でも mask-position 補間でも)毎フレームのマスク再ペイント
-   が走り、33〜75ms/frame のコマ落ちを実測した(2026-07)。
-
-   UA 既定では old/new にクロスフェード + mix-blend-mode: plus-lighter が付き、
-   クリップの抜けと二重になって濁る・重なりが加算合成で白飛びするので、両方打ち消す。
-
-   セレクタを html[data-theme-switching] に限定しているのは、この打ち消しが
-   ページ遷移(ClientRouter)の View Transition にまで及ばないようにするため。
-   擬似要素ツリーの起点は :root なので、この複合セレクタで正しく出し分けできる。
-   属性はテーマ切り替え中だけ JS が付け外しする。
-   ============================================================ */
-/* テーマ切り替えは画面全体を「1 枚の紙」として塗り替える。
-   view-transition-name を持つ要素(transition:animate の main、記事タイトルの
-   transition:name、dev toolbar)が残っていると、それぞれが root から分離した
-   別グループ = 別の紙になり、雨に参加せず遷移終了時にパチンと切り替わる
-   (中央のコンテンツだけ取り残された「2 枚の紙芝居」に見える。実機で確認済み)。
-   キャプチャは属性が付いた後に行われるので、ここで子孫の名前を一括で外す。
-   !important はサイト側・Astro 生成スタイルのどちらにも勝たせるため。
-   html 自身(UA の view-transition-name: root)は子孫セレクタに含まれず残る。
-   ページ遷移時は属性が付かないので、タイトルの morph はそのまま生きる。 */
-html[data-theme-switching] * {
-  view-transition-name: none !important;
-}
-/* UA 既定のクロスフェードも要らない。ワイルドカード(*)でまとめて止める。
-   個別のフェードが残るとクリップの抜けと混ざってちらついて見えるため。 */
-html[data-theme-switching]::view-transition-group(*),
-html[data-theme-switching]::view-transition-old(*),
-html[data-theme-switching]::view-transition-new(*) {
-  animation: none;
-  mix-blend-mode: normal;
-}
-/* 旧テーマを下に敷き、その上に新テーマをパスの内側だけ出す。
-   クリップは新テーマ側に当てる(パスの内側=そこだけ新テーマが見える)。 */
-html[data-theme-switching]::view-transition-old(root) {
-  z-index: 0;
-}
-html[data-theme-switching]::view-transition-new(root) {
-  z-index: 1;
-  /* クリップ本体(粒 + 全塗りのパス)は JS が WAAPI でこの疑似要素に直接当てる。
-     初期値は「まだどこにも粒が無い」= 何も見せない(ゼロ面積) */
-  clip-path: inset(50%);
-}
-
 /* 記事本文(prose)をインク/コバルト/朱のトークンに寄せる。
    色は light-dark() が両テーマを解決するので dark:prose-invert は不要 */
 .prose {
@@ -221,10 +167,10 @@ html[data-theme-switching]::view-transition-new(root) {
   --tw-prose-links: var(--color-cobalt);
   --tw-prose-bold: var(--color-ink);
   --tw-prose-counters: var(--color-ink-muted);
-  --tw-prose-bullets: var(--color-shu);
+  --tw-prose-bullets: var(--color-ink-muted);
   --tw-prose-hr: var(--color-line);
   --tw-prose-quotes: var(--color-ink);
-  --tw-prose-quote-borders: var(--color-shu);
+  --tw-prose-quote-borders: var(--color-cobalt);
   --tw-prose-captions: var(--color-ink-muted);
   --tw-prose-code: var(--color-ink);
   --tw-prose-th-borders: var(--color-line);
@@ -236,9 +182,197 @@ html[data-theme-switching]::view-transition-new(root) {
     color 200ms var(--ease-out-strong),
     text-decoration-color 200ms var(--ease-out-strong);
 }
-.prose a:hover {
+/* ホバーは朱にしない(朱は「結論・現在地」の色)。コバルトを一段濃くし、下線を実線色に寄せる。
+   生の :hover なので @media (hover: hover) で包み、タップでの誤発火を防ぐ */
+@media (hover: hover) {
+  .prose a:hover {
+    color: color-mix(in srgb, var(--color-cobalt) 75%, var(--color-ink));
+    text-decoration-color: currentColor;
+  }
+}
+
+/* 和文向けの行間・見出し・インラインコードの調整。
+   typography プラグインの規則は utilities レイヤーにあるので、上書きはレイヤー外に書く。 */
+.prose {
+  line-height: var(--leading-article);
+}
+/* h2 は記事タイトルと同じ「罫線 + 左端だけ朱」のモチーフを小さく繰り返す。
+   朱は 2rem に留めて、記事タイトル(4rem)との階層を保つ */
+.prose h2 {
+  position: relative;
+  margin-top: 2.25em;
+  padding-bottom: 0.4em;
+  border-bottom: 1px solid var(--color-line);
+}
+/* 上の margin-top は typography の「先頭要素の余白ゼロ」規則(utilities レイヤー)に勝ってしまうので、
+   先頭の h2 だけは自分で戻す */
+.prose > h2:first-child {
+  margin-top: 0;
+}
+.prose h2::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  width: 2rem;
+  height: 1px;
+  background: var(--color-shu);
+}
+/* インラインコードは和文と並ぶと小さく見えるので 0.875em → 0.9em に。
+   バッククォートの疑似要素は消し、代わりに薄い地で「記号」だと分かるようにする */
+.prose :where(code):not(:where(pre code)) {
+  font-size: 0.9em;
+  font-weight: 400;
+  padding: 0.1em 0.35em;
+  border-radius: 2px;
+  background: light-dark(rgb(31 46 58 / 0.07), rgb(219 228 236 / 0.1));
+}
+.prose :where(code):not(:where(pre code))::before,
+.prose :where(code):not(:where(pre code))::after {
+  content: none;
+}
+/* Shiki を通さない素の pre も図面の暗い面に揃える */
+.prose {
+  --tw-prose-pre-bg: light-dark(#1f2e3a, #0b1117);
+  --tw-prose-pre-code: #dbe4ec;
+}
+/* 記事本文を .sheet に載せたとき、見出しのアンカーが枠の内側余白を考慮してスクロールするように */
+.sheet .prose [id] {
+  scroll-margin-top: calc(4.5rem + var(--sheet-pad));
+}
+
+/* ============================================================
+   コードブロックの図面枠。ブログ側が出すマークアップ:
+   <figure class="code-figure">
+     <figcaption class="code-figure__meta" data-lang="ts">
+       <span class="code-figure__file">src/foo.ts</span>
+       <button type="button" class="code-figure__copy">コピー</button>
+     </figcaption>
+     <pre class="astro-code">…</pre>
+   </figure>
+   data-lang は figcaption に付ける(CSS の attr() は自要素の属性しか読めないため)。
+   ファイル名が無ければ span を省略してよい。コピー完了時は JS が data-copied を付け、
+   ボタンのテキストも「コピーしました」等に差し替える(色だけに頼らない)。
+   ============================================================ */
+.code-figure {
+  position: relative;
+  margin: 1.75em 0;
+  border: 1px solid var(--color-line);
+  background: var(--color-surface);
+}
+.code-figure__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 2.25rem;
+  margin: 0;
+  padding: 0.25rem 0.5rem 0.25rem 0.75rem;
+  border-bottom: 1px solid var(--color-line);
+  background: var(--color-paper);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.333;
+  letter-spacing: 0.05em;
+  color: var(--color-ink-muted);
+}
+/* 言語名は左端の小ラベル。図面の「図番」と同じ扱いで大文字にする */
+.code-figure__meta[data-lang]::before {
+  content: attr(data-lang);
+  flex: none;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.code-figure__file {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-ink);
+}
+.code-figure > pre {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+}
+/* コピーボタン。見た目は 32px、タップ領域は疑似要素で 44px まで広げる */
+.code-figure__copy {
+  position: relative;
+  flex: none;
+  margin-inline-start: auto;
+  min-height: 2rem;
+  padding: 0 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  background: transparent;
+  font: inherit;
+  letter-spacing: 0.05em;
+  color: var(--color-ink-muted);
+  cursor: pointer;
+  transition:
+    color 200ms var(--ease-out-strong),
+    border-color 200ms var(--ease-out-strong);
+}
+.code-figure__copy::after {
+  content: '';
+  position: absolute;
+  inset: -0.375rem;
+}
+@media (hover: hover) {
+  .code-figure__copy:hover {
+    color: var(--color-ink);
+    border-color: var(--color-line);
+  }
+}
+.code-figure__copy:focus-visible {
+  outline: 2px solid var(--color-cobalt);
+  outline-offset: 2px;
+}
+.code-figure__copy:active {
+  opacity: 0.6;
+}
+/* コピー完了 = 「確定」の意味なので朱。テキストも JS が差し替える前提 */
+.code-figure__copy[data-copied] {
   color: var(--color-shu);
-  text-decoration-color: currentColor;
+  border-color: var(--color-shu);
+}
+/* figcaption の直下でなく figure 直下に置かれた場合は右上に重ねる */
+.code-figure > .code-figure__copy {
+  position: absolute;
+  top: 0.125rem;
+  right: 0.5rem;
+  z-index: 1;
+}
+
+/* Shiki を light/dark の二重テーマ(astro.config の shikiConfig.themes)で出力した場合の
+   切り替え。単一テーマのときは --shiki-dark が無いので属性セレクタで安全に素通りする。
+   screen に限定しているのは印刷のため: 印刷時は下の @media print が color-scheme を light に
+   固定するが、この上書きが残るとコードだけ暗い面で刷られる。screen 外では Shiki のインライン
+   スタイル(ライト側の色)がそのまま生きる。 */
+@media screen and (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .astro-code[style*='--shiki-dark'],
+  :root:not([data-theme='light']) .astro-code[style*='--shiki-dark'] span {
+    color: var(--shiki-dark) !important;
+    background-color: var(--shiki-dark-bg) !important;
+  }
+}
+@media screen {
+  :root[data-theme='dark'] .astro-code[style*='--shiki-dark'],
+  :root[data-theme='dark'] .astro-code[style*='--shiki-dark'] span {
+    color: var(--shiki-dark) !important;
+    background-color: var(--shiki-dark-bg) !important;
+  }
+}
+
+/* 高コントラスト設定では紙の面・図面枠の境界をはっきりさせる */
+@media (prefers-contrast: more) {
+  .sheet,
+  .code-figure,
+  .code-figure__meta {
+    border-color: light-dark(rgb(0 0 0 / 0.5), rgb(255 255 255 / 0.6));
+  }
+  .prose :where(code):not(:where(pre code)) {
+    background: light-dark(rgb(0 0 0 / 0.1), rgb(255 255 255 / 0.16));
+  }
 }
 
 /* スムーススクロールは酔いやすいユーザーには重い。no-preference のときだけ有効化 */
@@ -274,40 +408,6 @@ html[data-theme-switching]::view-transition-new(root) {
   }
 }
 
-/* ============================================================
-   FIG. 1 — ヒーローのパッキング図。
-   ブロックが盤面外からスライドして最適配置に「収束」する。
-   各ブロックは --dx/--dy(開始オフセット)と animation-delay を
-   インラインで持つ。fill-mode: both なので削除・遅延中も静止状態が正しい。
-   prefers-reduced-motion 時は下の全体ルールで即座に最終状態になる。
-   ============================================================ */
-@keyframes fig-settle {
-  from {
-    opacity: 0;
-    transform: translate(var(--dx, 0), var(--dy, 0));
-  }
-  to {
-    opacity: 1;
-    transform: translate(0, 0);
-  }
-}
-.fig-block {
-  animation: fig-settle 0.6s var(--ease-out-strong) both;
-}
-@keyframes fig-note {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-.fig-note {
-  animation: fig-note 0.5s var(--ease-out-strong) 1s both;
-}
-
 /* reduced-motion: 動きは消すが、理解を助ける opacity/color の変化は残す(ゼロにはしない)。
    位置移動・スケール・大きな duration だけを無効化する。
    ※ View Transitions 自体は ClientRouter が reduced-motion で自動無効化する。 */
@@ -319,5 +419,74 @@ html[data-theme-switching]::view-transition-new(root) {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================================
+   印刷。方眼・ヘッダー・トグル・フッターは消し、ダークテーマで印刷しても白地になるよう
+   color-scheme を light に固定する(light-dark() の解決先が全色まとめて切り替わる)。
+   ============================================================ */
+@media print {
+  :root {
+    color-scheme: light !important;
+  }
+  body {
+    background-image: none;
+    background-color: #fff;
+  }
+  .site-header,
+  #theme-toggle,
+  .code-figure__copy,
+  footer {
+    display: none !important;
+  }
+  main {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  a {
+    color: var(--color-ink);
+    text-decoration-color: currentColor;
+  }
+  /* 本文中の外部リンクは URL を添える(紙では辿れないため) */
+  .prose a[href^='http']::after {
+    content: ' (' attr(href) ')';
+    font-family: var(--font-mono);
+    font-size: 0.8em;
+    color: var(--color-ink-muted);
+    word-break: break-all;
+  }
+  .sheet,
+  .code-figure,
+  .code-figure__meta {
+    border-color: rgb(0 0 0 / 0.25);
+  }
+  .sheet {
+    background: transparent;
+    padding: 1rem;
+  }
+  /* 改ページ禁止は「短いブロック」に限定する。article 全体に掛けると長い記事で大きな空白が
+     できるため、記事は途中で改ページしてよい(break-inside: auto)。
+     見出しだけ次ページに取り残さないよう break-after: avoid で本文と一緒に送る */
+  .code-figure,
+  figure,
+  blockquote,
+  table,
+  pre,
+  .print-keep {
+    break-inside: avoid;
+  }
+  article {
+    break-inside: auto;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    break-after: avoid;
+  }
+  pre {
+    white-space: pre-wrap;
+    word-break: break-all;
   }
 }

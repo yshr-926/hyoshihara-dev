@@ -1,0 +1,32 @@
+---
+/**
+ * 記事冒頭の「この記事で分かること」。frontmatter の keyPoints(2〜3 点)を表示する。
+ * `.sheet` は global.css 側のクラス(面 + 内側余白)。未定義でも壊れないよう
+ * bg-surface / border のユーティリティを併記している。
+ */
+interface Props {
+  items: string[];
+}
+
+const { items } = Astro.props;
+---
+
+<aside aria-labelledby="key-points-heading" class="sheet border border-line bg-surface">
+  <p class="label-mono" aria-hidden="true">KEY POINTS</p>
+  <h2 id="key-points-heading" class="mt-0.5 text-sm font-semibold tracking-tight">
+    この記事で分かること
+  </h2>
+  <ol class="mt-3 space-y-1.5 text-sm leading-relaxed">
+    {
+      items.map((item, i) => (
+        <li class="flex gap-3">
+          {/* 番号は等幅。並びの「1 2 3」は図番の延長として扱う */}
+          <span class="shrink-0 font-mono text-xs leading-relaxed text-ink-muted">
+            {String(i + 1).padStart(2, '0')}
+          </span>
+          <span>{item}</span>
+        </li>
+      ))
+    }
+  </ol>
+</aside>

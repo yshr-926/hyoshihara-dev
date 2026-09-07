@@ -1,170 +1,157 @@
 ---
 import { getCollection } from 'astro:content';
 import Layout from '../layouts/Layout.astro';
+import { career, contacts, education, fields, profile } from '../data/profile';
 
-// 最新記事(公開分)を新しい順に3件
+// 最新記事(公開分)を新しい順に 3 件。下書き(draft)は常に除外する。0 件なら「記事」セクション自体を出さない
 const posts = (await getCollection('blog', ({ data }) => !data.draft))
   .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
   .slice(0, 3);
+
+const linkClass =
+  'inline-flex min-h-11 items-center rounded-sm underline decoration-cobalt/40 underline-offset-4 transition-colors duration-200 ease-out-strong hover:text-ink hover:decoration-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt';
 ---
 
-<Layout title="hyoshihara — 空間最適化 × AIエージェント開発">
-  <!-- ファーストビュー: 10秒で「何者か」が伝わることを最優先(draft.md 3.1) -->
-  <section class="mb-20 mt-4 sm:mt-8">
-    <div class="flex flex-col gap-10 sm:flex-row sm:items-center sm:justify-between">
-      <div class="max-w-md">
-        <h1 class="text-4xl font-bold tracking-tight sm:text-5xl">hyoshihara</h1>
-        <p class="mt-4 text-lg text-ink-muted">
-          空間最適化 <span class="font-mono font-medium text-shu">×</span> AIエージェント開発
-        </p>
-        <p class="mt-5 leading-relaxed">
-          {/* TODO: 代表実績ダイジェスト(2〜3件)・連絡先を実装フェーズで作り込む */}
-          「どこに・何を・どう置くか」。配置・経路・レイアウトの問題を数理最適化で解き、 AIエージェントとして現場で動くところまで実装しています。
-        </p>
-        <div class="mt-8 flex items-center gap-5">
-          <a
-            href="/resume"
-            class="group inline-flex items-center gap-1.5 border border-ink px-4 py-2 text-sm font-medium transition-colors duration-200 ease-out-strong hover:bg-ink hover:text-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
-          >
-            経歴を見る
-            <span
-              aria-hidden="true"
-              class="transition-transform duration-200 ease-out-strong group-hover:translate-x-0.5"
-              >→</span
-            >
-          </a>
-          <a
-            href="/blog"
-            class="group inline-flex items-center gap-1 rounded-sm text-sm font-medium text-cobalt transition-colors duration-200 ease-out-strong hover:text-shu focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
-          >
-            記事を読む
-            <span
-              aria-hidden="true"
-              class="transition-transform duration-200 ease-out-strong group-hover:translate-x-0.5"
-              >→</span
-            >
-          </a>
-        </div>
-      </div>
+<Layout
+  title={`${profile.fullName} — ${profile.title}`}
+  description={`${profile.fullName}(${profile.title})。${profile.domain}`}
+>
+  <!-- 氏名 → 肩書き → 専門領域 → 連絡先。図・キャッチコピー・自己紹介文・数字は置かない -->
+  <section aria-labelledby="name-heading" class="mt-2 sm:mt-8">
+    {
+      /* 氏名。英語名は語中で折らず、和名は 390px では 2 行目に落とす(ハンドルはヘッダーのワードマークだけに出す) */
+    }
+    <h1 id="name-heading" class="text-2xl font-bold tracking-tight sm:text-3xl">
+      <span lang="en" class="whitespace-nowrap">{profile.fullName}</span>
+      <span class="mt-1 block text-base font-normal text-ink-muted sm:ml-3 sm:inline">
+        {profile.fullNameJa}
+      </span>
+    </h1>
+    {/* 肩書きと専門領域。記号(— や ×)は使わず、2 行の日本語で */}
+    <p class="mt-3 text-base font-medium">{profile.title}</p>
+    <p class="mt-1 text-base text-ink-muted">{profile.domain}</p>
 
-      <!-- FIG. 1: ビンパッキングが最適解に収束する図。専門領域(空間最適化)をそのまま絵にする。
-           各ブロックは盤面外(--dx/--dy)からスライドインし、無駄0%で敷き詰まる。
-           最後のピース(朱)が収まったあと注記がフェードイン。 -->
-      <figure class="mx-auto shrink-0 sm:mx-0">
-        <svg
-          width="240"
-          height="192"
-          viewBox="0 0 240 192"
-          fill="none"
-          role="img"
-          aria-label="ビンパッキング問題の最適解の図。5つの矩形が容器に無駄なく敷き詰められている"
-        >
-          <!-- 容器 -->
-          <rect
-            x="23.5"
-            y="23.5"
-            width="193"
-            height="145"
-            class="stroke-ink-muted"
-            stroke-width="1.5"></rect>
-          <!-- ブロック: 完全充填になる配置。fill はコバルト系の濃淡、最後の1個だけ朱 -->
-          <g class="stroke-ink" stroke-opacity="0.25">
-            <rect
-              class="fig-block fill-cobalt"
-              fill-opacity="0.16"
-              style="--dx:-48px"
-              x="24"
-              y="24"
-              width="96"
-              height="72"></rect>
-            <rect
-              class="fig-block fill-cobalt"
-              fill-opacity="0.28"
-              style="--dy:-44px; animation-delay:0.12s"
-              x="120"
-              y="24"
-              width="96"
-              height="72"></rect>
-            <rect
-              class="fig-block fill-cobalt"
-              fill-opacity="0.1"
-              style="--dy:44px; animation-delay:0.24s"
-              x="24"
-              y="96"
-              width="72"
-              height="72"></rect>
-            <rect
-              class="fig-block fill-cobalt"
-              fill-opacity="0.22"
-              style="--dx:-48px; --dy:44px; animation-delay:0.38s"
-              x="96"
-              y="96"
-              width="72"
-              height="72"></rect>
-            <rect
-              class="fig-block fill-shu"
-              fill-opacity="0.85"
-              style="--dx:56px; animation-delay:0.56s"
-              x="168"
-              y="96"
-              width="48"
-              height="72"></rect>
-          </g>
-          <!-- 注記(朱書き)。最後のピースが収まってから現れる -->
-          <text
-            x="216"
-            y="184"
-            text-anchor="end"
-            class="fig-note fill-shu font-mono"
-            font-size="10"
-            letter-spacing="0.08em"
-          >
-            waste = 0%
-          </text>
-        </svg>
-        <figcaption class="mt-2 font-mono text-[10px] tracking-widest text-ink-muted">
-          FIG. 1 — BIN PACKING
-        </figcaption>
-      </figure>
-    </div>
-  </section>
-
-  <section>
-    <div class="mb-4 flex items-baseline justify-between border-b border-line pb-2">
-      <h2 class="text-xl font-semibold tracking-tight">最新記事</h2>
-      <a
-        href="/blog"
-        class="group inline-flex items-center gap-1 rounded-sm font-mono text-xs tracking-widest text-cobalt transition-colors duration-200 ease-out-strong hover:text-shu focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
-      >
-        ALL POSTS
-        <span
-          aria-hidden="true"
-          class="transition-transform duration-200 ease-out-strong group-hover:translate-x-0.5"
-          >→</span
-        >
-      </a>
-    </div>
-    <ul class="divide-y divide-line">
+    <!-- 連絡先。テキストリンク 1 行、タップ領域 44px 角(min-w-11 + 横 padding。横 padding は負マージンで相殺し文字位置を本文に揃える)。別タブでは開かない -->
+    <ul class="-mx-2 mt-4 flex flex-wrap gap-x-1 gap-y-0 text-sm" aria-label="連絡先">
       {
-        posts.map((post) => (
+        contacts.map((contact) => (
           <li>
             <a
-              href={`/blog/${post.id}`}
-              class="group -mx-4 flex items-baseline gap-4 px-4 py-3 transition-[background-color,translate] duration-200 ease-out-strong hover:-translate-y-0.5 hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt active:translate-y-0 active:duration-100"
+              href={contact.href}
+              rel="me noopener"
+              class:list={[linkClass, 'min-w-11 justify-center px-2 text-ink']}
             >
-              <span class="shrink-0 font-mono text-xs text-ink-muted">
-                {post.data.date.toISOString().slice(0, 10)}
-              </span>
-              <span
-                transition:name={`post-title-${post.id}`}
-                class="font-medium decoration-shu/50 underline-offset-4 group-hover:underline"
-              >
-                {post.data.title}
-              </span>
+              {contact.label}
+              <span class="sr-only">({contact.handle})</span>
             </a>
           </li>
         ))
       }
     </ul>
   </section>
+
+  <!-- 経歴: 会社名・職種・期間と学歴だけ。案件・成果・数字は載せない -->
+  <section aria-labelledby="career-heading" class="mt-14 sm:mt-20">
+    <div class="relative mb-5 border-b border-line pb-2">
+      <p class="label-mono" aria-hidden="true">CAREER</p>
+      <h2 id="career-heading" class="mt-0.5 text-lg font-semibold tracking-tight">経歴</h2>
+      <span aria-hidden="true" class="absolute -bottom-px left-0 h-px w-8 bg-shu"></span>
+    </div>
+    <ul class="space-y-2 text-sm leading-list">
+      {
+        career.map((job) => (
+          <li class="grid grid-cols-[6.75rem_minmax(0,1fr)] gap-x-4 sm:grid-cols-[9rem_minmax(0,1fr)]">
+            {/* 期間は等幅。「現在」だけ朱(現在地) */}
+            <span class="font-mono text-xs leading-list text-ink-muted">
+              <time datetime={job.from.iso}>{job.from.text}</time>
+              <span aria-hidden="true"> — </span>
+              <span class="sr-only">から</span>
+              {job.to === '現在' ? (
+                <span class="font-sans text-shu">現在</span>
+              ) : (
+                <time datetime={job.to.iso}>{job.to.text}</time>
+              )}
+            </span>
+            <span>
+              {job.company}
+              <span aria-hidden="true" class="mx-1 text-ink-muted">
+                /
+              </span>
+              <span class="sr-only">、</span>
+              {job.role}
+            </span>
+          </li>
+        ))
+      }
+      {
+        education.map((entry) => (
+          <li class="grid grid-cols-[6.75rem_minmax(0,1fr)] gap-x-4 sm:grid-cols-[9rem_minmax(0,1fr)]">
+            <time datetime={entry.year} class="font-mono text-xs leading-list text-ink-muted">
+              {entry.year}
+            </time>
+            <span>
+              {entry.school} {entry.status}
+            </span>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+
+  <!-- 専門領域: 少数の言葉だけ(スキル一覧にしない) -->
+  <section aria-labelledby="fields-heading" class="mt-12 sm:mt-16">
+    <div class="relative mb-5 border-b border-line pb-2">
+      <p class="label-mono" aria-hidden="true">FIELDS</p>
+      <h2 id="fields-heading" class="mt-0.5 text-lg font-semibold tracking-tight">専門領域</h2>
+      <span aria-hidden="true" class="absolute -bottom-px left-0 h-px w-8 bg-shu"></span>
+    </div>
+    <ul class="flex flex-wrap gap-x-4 gap-y-1 text-sm leading-list" aria-label="専門領域">
+      {fields.map((field) => <li>{field}</li>)}
+    </ul>
+  </section>
+
+  {
+    /* 記事: 公開記事があるときだけ。0 件なら DOM ごと出さない(空のセクションを見せない) */
+    posts.length > 0 && (
+      <section aria-labelledby="posts-heading" class="mt-12 sm:mt-16">
+        <div class="relative mb-4 flex items-end justify-between border-b border-line pb-2">
+          <div>
+            <p class="label-mono" aria-hidden="true">
+              POSTS
+            </p>
+            <h2 id="posts-heading" class="mt-0.5 text-lg font-semibold tracking-tight">
+              記事
+            </h2>
+          </div>
+          <a href="/blog" class:list={[linkClass, 'text-sm text-ink-muted']}>
+            記事一覧
+          </a>
+          <span aria-hidden="true" class="absolute -bottom-px left-0 h-px w-8 bg-shu" />
+        </div>
+        <ul class="divide-y divide-line">
+          {posts.map((post) => (
+            <li>
+              <a
+                href={`/blog/${post.id}`}
+                class="group -mx-2 flex min-h-11 flex-wrap items-baseline gap-x-4 gap-y-1 rounded-sm px-2 py-2 text-sm leading-list transition-colors duration-200 ease-out-strong hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
+              >
+                <time
+                  datetime={post.data.date.toISOString().slice(0, 10)}
+                  class="shrink-0 font-mono text-xs text-ink-muted"
+                >
+                  {post.data.date.toISOString().slice(0, 10)}
+                </time>
+                <span
+                  transition:name={`post-title-${post.id}`}
+                  class="font-medium decoration-cobalt/40 underline-offset-4 group-hover:underline"
+                >
+                  {post.data.title}
+                </span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
 </Layout>

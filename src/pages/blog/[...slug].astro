@@ -1,8 +1,11 @@
 ---
 import { getCollection, render } from 'astro:content';
 import Layout from '../../layouts/Layout.astro';
+import KeyPoints from '../../components/blog/KeyPoints.astro';
+import TableOfContents from '../../components/blog/TableOfContents.astro';
 
 export async function getStaticPaths() {
+  // 下書き(draft: true)は HTML を生成しない
   const posts = await getCollection('blog', ({ data }) => !data.draft);
   return posts.map((post) => ({
     params: { slug: post.id },
@@ -11,42 +14,172 @@ export async function getStaticPaths() {
 }
 
 const { post } = Astro.props;
-const { Content } = await render(post);
+const { Content, headings } = await render(post);
+
+const isoDate = post.data.date.toISOString().slice(0, 10);
+const keyPoints = post.data.keyPoints ?? [];
+
+// 目次は h2〜h3 が 3 つ以上あるときだけ出す(短い記事には不要)
+const tocHeadings = headings.filter((h) => h.depth === 2 || h.depth === 3);
+const showToc = tocHeadings.length >= 3;
 ---
 
 <Layout
   title={`${post.data.title} — hyoshihara`}
   description={post.data.description}
   ogImage={`/og/blog/${post.id}.png`}
+  width="reading"
 >
-  <article>
-    <header class="mb-8">
-      <p class="mb-3 font-mono text-xs text-ink-muted">
-        {post.data.date.toISOString().slice(0, 10)}
-        {
-          post.data.tags.length > 0 && (
-            <span class="ml-2 text-cobalt">
-              {post.data.tags.map((tag) => (
-                <span class="mr-1.5">#{tag}</span>
-              ))}
-            </span>
-          )
-        }
-      </p>
-      <h1 transition:name={`post-title-${post.id}`} class="text-3xl font-bold tracking-tight">
-        {post.data.title}
-      </h1>
-      <!-- 見出し下の罫線。左端だけ朱(朱書きのケイ) -->
-      <div class="relative mt-6 h-px bg-line">
-        <span aria-hidden="true" class="absolute left-0 top-0 h-px w-16 bg-shu"></span>
+  {
+    /* 幅の制御: Layout の width="reading" で main が読みやすい幅(max-w-2xl = 42rem)になる。
+       PC で目次を脇に置くときだけ、そのぶん本文カラムの外へはみ出す。
+       - lg: 左右対称に 6rem ずつ広げる(本文 40rem + 間隔 3rem + 目次 12rem = 55rem)
+       - xl: 本文の左端をヘッダー(max-w-3xl = 48rem)の左端と揃える。main は 42rem で中央なので
+         左へ 3rem((48 − 42) / 2)出し、残り 12rem を右へ出す。目次はヘッダー右端より 9rem 外に出るが、
+         本文とヘッダーの左端が揃うほうが読みやすい(1280 / 1536px で確認) */
+  }
+  <div
+    class:list={[
+      showToc &&
+        'lg:-mx-24 lg:grid lg:grid-cols-[minmax(0,1fr)_12rem] lg:items-start lg:gap-12 xl:-ml-12 xl:-mr-48',
+    ]}
+  >
+    <article class="w-full min-w-0">
+      <header class="mb-8">
+        <p class="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs text-ink-muted">
+          {/* 日付だけ等幅。タグは本文フォント */}
+          <time datetime={isoDate} class="font-mono">{isoDate}</time>
+          {
+            post.data.tags.length > 0 && (
+              <span class="flex flex-wrap gap-x-2 text-cobalt">
+                {post.data.tags.map((tag) => (
+                  <span>#{tag}</span>
+                ))}
+              </span>
+            )
+          }
+        </p>
+        <h1 transition:name={`post-title-${post.id}`} class="text-3xl font-bold tracking-tight">
+          {post.data.title}
+        </h1>
+        <!-- 見出し下の罫線。左端だけ朱(朱書きのケイ) -->
+        <div class="relative mt-6 h-px bg-line">
+          <span aria-hidden="true" class="absolute left-0 top-0 h-px w-16 bg-shu"></span>
+        </div>
+      </header>
+
+      {keyPoints.length > 0 && <KeyPoints items={keyPoints} />}
+
+      {
+        /* スマホ〜md: 冒頭の折りたたみ目次。PC では脇の sticky 目次に切り替える(下の aside) */
+        showToc && (
+          <details class="group mt-6 border border-line bg-surface px-5 lg:hidden">
+            {/* summary はタップ領域 44px */}
+            <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium [&::-webkit-details-marker]:hidden">
+              <span>
+                <span class="label-mono mr-2" aria-hidden="true">
+                  CONTENTS
+                </span>
+                目次
+              </span>
+              {/* 開閉インジケータ(装飾)。回転は transform のみ */}
+              <span
+                aria-hidden="true"
+                class="font-mono text-xs text-ink-muted transition-transform duration-200 ease-out-strong group-open:rotate-90"
+              >
+                ›
+              </span>
+            </summary>
+            <div class="border-t border-line py-3">
+              <TableOfContents headings={tocHeadings} showLabel={false} />
+            </div>
+          </details>
+        )
+      }
+
+      {
+        /* 記事本文は紙の面(.sheet)に載せ、方眼と文字の競合をなくす(header は方眼の上に残す)。
+          スマホでは面を全幅に。文字組は typography プラグインの prose で、
+          色は global.css の prose 変数(light-dark トークン)が両テーマを解決する */
+      }
+      <div class="sheet -mx-4 mt-8 sm:mx-0">
+        <div class="prose max-w-none">
+          <Content />
+        </div>
       </div>
-    </header>
+    </article>
+
     {
-      /* 記事本文は typography プラグインの prose で整形。色は global.css の
-        prose 変数(light-dark トークン)が両テーマを解決する */
+      showToc && (
+        <aside class="hidden lg:sticky lg:top-24 lg:block lg:border-l lg:border-line lg:pl-5">
+          <TableOfContents headings={tocHeadings} />
+        </aside>
+      )
     }
-    <div class="prose max-w-none">
-      <Content />
-    </div>
-  </article>
+  </div>
 </Layout>
+
+<script>
+  /**
+   * コードブロックの拡張: Shiki 出力の <pre data-language data-title?> を
+   * <figure class="code-figure"> で包み、言語・ファイル名・コピー操作を付ける。
+   * マークアップの契約(data-lang / .code-figure__file / .code-figure__copy / data-copied)は
+   * global.css の .code-figure のコメントに合わせている。スタイル本体はそちら。
+   * ClientRouter 経由のページ遷移でも動くよう astro:page-load で毎回走らせる。
+   */
+  const COPIED_MS = 1500;
+
+  function enhanceCodeBlocks() {
+    const pres = document.querySelectorAll<HTMLPreElement>('.prose pre[data-language]');
+    for (const pre of pres) {
+      if (pre.parentElement?.classList.contains('code-figure')) continue;
+
+      const figure = document.createElement('figure');
+      figure.className = 'code-figure';
+
+      const meta = document.createElement('figcaption');
+      meta.className = 'code-figure__meta';
+
+      // 言語名は figcaption の data-lang(CSS の ::before が表示する)、ファイル名は span
+      const language = pre.dataset.language;
+      if (language && language !== 'plaintext') meta.dataset.lang = language;
+
+      const title = pre.dataset.title;
+      if (title) {
+        const fileEl = document.createElement('span');
+        fileEl.className = 'code-figure__file';
+        fileEl.textContent = title;
+        meta.append(fileEl);
+      }
+
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'code-figure__copy';
+      button.textContent = 'コピー';
+      button.setAttribute('aria-label', title ? `${title} のコードをコピー` : 'コードをコピー');
+
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      button.addEventListener('click', async () => {
+        const code = pre.querySelector('code')?.textContent ?? pre.textContent ?? '';
+        try {
+          await navigator.clipboard.writeText(code);
+          button.dataset.copied = '';
+          button.textContent = 'コピーしました';
+        } catch {
+          button.textContent = 'コピーできません';
+        }
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+          delete button.dataset.copied;
+          button.textContent = 'コピー';
+        }, COPIED_MS);
+      });
+      meta.append(button);
+
+      pre.replaceWith(figure);
+      figure.append(meta, pre);
+    }
+  }
+
+  document.addEventListener('astro:page-load', enhanceCodeBlocks);
+</script>
