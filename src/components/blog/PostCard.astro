@@ -12,19 +12,22 @@ const isoDate = date.toISOString().slice(0, 10);
 
 {
   /* 記事カード = 方眼の上に置かれた1枚のシート。タイトル → 概要 → 日付・タグ の順(タイトル優先)。
-    ホバーの浮き上がりは translate だけをアニメーションし、影は即時に切り替える(box-shadow は GPU に乗らないため) */
+    ホバーの浮き上がりは translate だけをアニメーションする。影は box-shadow を直接遷移させず(GPU に乗らない)、
+    影を持った疑似要素の opacity をフェードさせる。押下時は浮きを戻して「押した」感を出す(戻りは速く) */
 }
 <a
   href={`/blog/${post.id}`}
-  class="group block border border-line bg-surface px-5 py-4 transition-[background-color,border-color,translate] duration-200 ease-out-strong hover:-translate-y-0.5 hover:border-ink-muted hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt active:translate-y-0 active:duration-100"
+  class="group relative block border border-line bg-surface px-5 py-4 transition-[background-color,border-color,translate] duration-200 ease-out-strong after:pointer-events-none after:absolute after:-inset-px after:opacity-0 after:shadow-md after:shadow-ink/10 after:transition-opacity after:duration-200 after:ease-out-strong hover:-translate-y-0.5 hover:border-ink-muted hover:after:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt active:translate-y-0 active:duration-100 active:after:opacity-0"
 >
+  {/* 下線はオン/オフではなく色のフェードで出す(透明→コバルト) */}
   <h2
     transition:name={`post-title-${post.id}`}
-    class="text-lg font-semibold tracking-tight decoration-cobalt/40 underline-offset-4 group-hover:underline"
+    class="text-lg font-semibold tracking-tight underline decoration-transparent underline-offset-4 transition-[text-decoration-color] duration-200 ease-out-strong group-hover:decoration-cobalt/40"
   >
     {title}
   </h2>
-  <p class="mt-2 text-sm leading-relaxed text-ink-muted">{description}</p>
+  {/* カードは枠いっぱいでも、概要の 1 行は読みやすい長さ(約 42rem)で折り返す */}
+  <p class="mt-2 max-w-2xl text-sm leading-relaxed text-ink-muted">{description}</p>
   <p class="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs text-ink-muted">
     {/* 日付だけ等幅。タグは本文フォント(和文混在の可能性があるため) */}
     <time datetime={isoDate} class="font-mono">{isoDate}</time>

@@ -38,6 +38,11 @@
     system-ui, -apple-system, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'Yu Gothic UI', Meiryo,
     'Noto Sans JP', sans-serif;
 
+  /* サイト全体の枠の幅(ヘッダー・本文・フッターで共通。max-w-site ユーティリティになる)。
+     ページごとに本文だけ広げたり狭めたりせず、枠は 1 つに揃える(ページ間で枠が動くと落ち着かない)。
+     記事本文は枠の中で max-w-2xl(42rem)に留める(和文 40 字前後が読みやすいため) */
+  --container-site: 60rem;
+
   /* 行間はページの役割で使い分ける(--leading-* は leading-article / leading-list ユーティリティになる)。
      和文の長文は欧文より広めが読みやすい。リスト・カードは詰めて一覧性を優先する */
   --leading-article: 1.85;
@@ -70,16 +75,20 @@
       96px 96px,
       24px 24px,
       24px 24px;
-    --grid-major: light-dark(rgb(31 46 58 / 0.04), rgb(219 228 236 / 0.034));
-    --grid-minor: light-dark(rgb(31 46 58 / 0.02), rgb(219 228 236 / 0.017));
+    /* 暗い地では同じ不透明度でも罫線が強く見えるので、ダーク側は一段薄くする */
+    --grid-major: light-dark(rgb(31 46 58 / 0.04), rgb(219 228 236 / 0.028));
+    --grid-minor: light-dark(rgb(31 46 58 / 0.02), rgb(219 228 236 / 0.014));
   }
 
-  /* 見出しは行末バランス、本文は孤立行(orphan)を避ける */
+  /* 見出しは行末バランス、本文は孤立行(orphan)を避ける。
+     和文の見出しはプロポーショナル詰め(palt)で約物・かなの間延びを抑える
+     (Hiragino / Noto Sans JP が対応。欧文フォントでは無視される) */
   h1,
   h2,
   h3,
   h4 {
     text-wrap: balance;
+    font-feature-settings: 'palt';
   }
   p {
     text-wrap: pretty;
@@ -242,6 +251,41 @@
 }
 
 /* ============================================================
+   目次の現在地。TableOfContents.astro の script が aria-current="location" と
+   .toc-marker の transform を更新する。朱 = 現在地(ナビ・ワードマーク・罫線左端と同じ意味)。
+   マーカーは PC の脇目次(aside の左罫線)に重ねる 1px の朱線で、位置は transform だけで動かす。
+   スマホの折りたたみ目次では文字色の変化だけにする(罫線が無いため)。
+   ============================================================ */
+.toc-marker {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1.25rem;
+  background: var(--color-shu);
+  opacity: 0;
+  transition:
+    transform 240ms var(--ease-out-strong),
+    opacity 200ms var(--ease-out-strong);
+}
+.toc-marker[data-visible='true'] {
+  opacity: 1;
+}
+/* aside 側の目次: ol の左端を aside の左罫線(border-left)の位置まで出して、朱線が罫線に重なるようにする。
+   aside の padding-left は 1.25rem(pl-5)なので、そのぶん左へずらす */
+aside .toc > ol {
+  margin-left: -1.25rem;
+  padding-left: 1.25rem;
+}
+aside .toc .toc-marker {
+  left: -1px;
+}
+/* 折りたたみ目次(details)ではマーカーを出さない */
+details .toc-marker {
+  display: none;
+}
+
+/* ============================================================
    コードブロックの図面枠。ブログ側が出すマークアップ:
    <figure class="code-figure">
      <figcaption class="code-figure__meta" data-lang="ts">
@@ -310,7 +354,8 @@
   cursor: pointer;
   transition:
     color 200ms var(--ease-out-strong),
-    border-color 200ms var(--ease-out-strong);
+    border-color 200ms var(--ease-out-strong),
+    transform 120ms var(--ease-out-strong);
 }
 .code-figure__copy::after {
   content: '';
@@ -327,8 +372,10 @@
   outline: 2px solid var(--color-cobalt);
   outline-offset: 2px;
 }
+/* 押下は縮んで応える(pointer-down の瞬間に反応する) */
 .code-figure__copy:active {
-  opacity: 0.6;
+  transform: scale(0.96);
+  opacity: 0.7;
 }
 /* コピー完了 = 「確定」の意味なので朱。テキストも JS が差し替える前提 */
 .code-figure__copy[data-copied] {

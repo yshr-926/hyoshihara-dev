@@ -5,7 +5,10 @@ import type { MarkdownHeading } from 'astro';
  * 記事の目次。render(post) の headings から depth 2〜3 だけを拾う。
  * 見た目の切り替え(スマホ: details 折りたたみ / PC: 脇に sticky)は呼び出し側で行い、
  * ここは <nav aria-label="目次"> と入れ子リストだけを出す。
- * 現在地の強調は v1 では行わない。
+ *
+ * 現在地: 末尾の script がスクロール位置から「いま読んでいる見出し」を求め、
+ * 対応するリンクに aria-current="location" を付ける。朱は「現在地」の色なので、
+ * PC の目次では朱の短い縦線(.toc-marker)が現在の項目へ滑る。スタイルは global.css の .toc-*。
  */
 interface Props {
   headings: MarkdownHeading[];
@@ -17,7 +20,7 @@ const { headings, showLabel = true } = Astro.props;
 const items = headings.filter((h) => h.depth === 2 || h.depth === 3);
 ---
 
-<nav aria-label="目次">
+<nav aria-label="目次" data-toc class="toc">
   {
     showLabel && (
       <p class="label-mono mb-2" aria-hidden="true">
@@ -25,13 +28,16 @@ const items = headings.filter((h) => h.depth === 2 || h.depth === 3);
       </p>
     )
   }
-  <ol class="space-y-1.5 text-sm leading-snug">
+  <ol class="relative space-y-1.5 text-sm leading-snug">
+    {/* 朱の現在地マーカー。JS が translateY で現在の項目へ移動させる。項目が決まるまでは非表示 */}
+    <span aria-hidden="true" class="toc-marker"></span>
     {
       items.map((h) => (
         <li class:list={[h.depth === 3 && 'pl-4 text-xs']}>
           <a
             href={`#${h.slug}`}
-            class="-my-2 flex min-h-11 items-center py-3 text-ink-muted underline decoration-transparent underline-offset-4 transition-[color,text-decoration-color] duration-200 ease-out-strong hover:text-ink hover:decoration-cobalt/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
+            data-toc-link={h.slug}
+            class="-my-2 flex min-h-11 items-center py-3 text-ink-muted underline decoration-transparent underline-offset-4 transition-[color,text-decoration-color] duration-200 ease-out-strong hover:text-ink hover:decoration-cobalt/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt aria-[current]:text-ink"
           >
             {h.text}
           </a>
@@ -40,3 +46,122 @@ const items = headings.filter((h) => h.depth === 2 || h.depth === 3);
     }
   </ol>
 </nav>
+
+<script>
+  /**
+   * 目次の現在地(scroll spy)。
+   * - 「現在の見出し」= ヘッダー下の基準線(上端から 6rem)を最後に通過した見出し。
+   *   IntersectionObserver ではなくスクロール位置で決める(短いセクションが連続しても飛ばない)
+   * - 更新は requestAnimationFrame でまとめ、変化があったときだけ DOM を触る
+   * - 目次はスマホ用(details)と PC 用(aside)の 2 つが同時に存在しうるので、両方を同期する
+   * - ページ遷移(ClientRouter)ごとに astro:page-load で張り直し、before-swap で前回分を解除する
+   */
+  const ACTIVATION_LINE = 96; // px。sticky ヘッダー(52px)+ 少しの余白
+
+  let cleanup: (() => void) | undefined;
+
+  function setup() {
+    cleanup?.();
+    cleanup = undefined;
+
+    const navs = Array.from(document.querySelectorAll<HTMLElement>('nav[data-toc]'));
+    if (navs.length === 0) return;
+
+    // 目次に載っている見出しだけを、文書順に集める
+    const slugs = new Set(
+      Array.from(document.querySelectorAll<HTMLAnchorElement>('[data-toc-link]')).map(
+        (a) => a.dataset.tocLink ?? '',
+      ),
+    );
+    const headings = Array.from(
+      document.querySelectorAll<HTMLElement>('article h2[id], article h3[id]'),
+    ).filter((h) => slugs.has(h.id));
+    if (headings.length === 0) return;
+
+    let current: string | undefined;
+    let raf = 0;
+
+    const moveMarker = (nav: HTMLElement, link: HTMLAnchorElement | null) => {
+      const marker = nav.querySelector<HTMLElement>('.toc-marker');
+      if (!marker) return;
+      if (!link) {
+        marker.dataset.visible = 'false';
+        return;
+      }
+      // マーカーはリンク行の中央に置く。位置は transform だけで動かす(高さは固定)
+      const list = marker.parentElement as HTMLElement;
+      const y =
+        link.getBoundingClientRect().top -
+        list.getBoundingClientRect().top +
+        (link.offsetHeight - marker.offsetHeight) / 2;
+      marker.style.transform = `translateY(${Math.round(y)}px)`;
+      marker.dataset.visible = 'true';
+    };
+
+    const apply = (id: string | undefined) => {
+      for (const nav of navs) {
+        let activeLink: HTMLAnchorElement | null = null;
+        for (const link of nav.querySelectorAll<HTMLAnchorElement>('[data-toc-link]')) {
+          const isActive = link.dataset.tocLink === id;
+          if (isActive) {
+            link.setAttribute('aria-current', 'location');
+            activeLink = link;
+          } else {
+            link.removeAttribute('aria-current');
+          }
+        }
+        moveMarker(nav, activeLink);
+      }
+    };
+
+    const compute = () => {
+      raf = 0;
+      // 最下部まで来たら最後の見出しを現在地にする(短い末尾セクションが選ばれない問題の回避)
+      const atBottom =
+        window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
+      let next: string | undefined;
+      if (atBottom) {
+        next = headings[headings.length - 1]?.id;
+      } else {
+        for (const h of headings) {
+          if (h.getBoundingClientRect().top <= ACTIVATION_LINE) next = h.id;
+          else break;
+        }
+      }
+      if (next !== current) {
+        current = next;
+        apply(next);
+      }
+    };
+
+    const schedule = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(compute);
+    };
+
+    const controller = new AbortController();
+    const { signal } = controller;
+    window.addEventListener('scroll', schedule, { passive: true, signal });
+    window.addEventListener('resize', schedule, { passive: true, signal });
+    // details の開閉でスマホ目次のレイアウトが変わるのでマーカーを置き直す
+    for (const details of document.querySelectorAll('details')) {
+      details.addEventListener('toggle', () => apply(current), { signal });
+    }
+    // フォント読み込みで行の高さが変わることがあるので、その後にも一度計算する
+    document.fonts?.ready.then(() => {
+      if (!signal.aborted) apply(current);
+    });
+
+    compute();
+    cleanup = () => {
+      controller.abort();
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }
+
+  document.addEventListener('astro:page-load', setup);
+  document.addEventListener('astro:before-swap', () => {
+    cleanup?.();
+    cleanup = undefined;
+  });
+</script>

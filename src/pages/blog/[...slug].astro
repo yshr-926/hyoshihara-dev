@@ -28,23 +28,18 @@ const showToc = tocHeadings.length >= 3;
   title={`${post.data.title} — hyoshihara`}
   description={post.data.description}
   ogImage={`/og/blog/${post.id}.png`}
-  width="reading"
 >
   {
-    /* 幅の制御: Layout の width="reading" で main が読みやすい幅(max-w-2xl = 42rem)になる。
-       PC で目次を脇に置くときだけ、そのぶん本文カラムの外へはみ出す。
-       - lg: 左右対称に 6rem ずつ広げる(本文 40rem + 間隔 3rem + 目次 12rem = 55rem)
-       - xl: 本文の左端をヘッダー(max-w-3xl = 48rem)の左端と揃える。main は 42rem で中央なので
-         左へ 3rem((48 − 42) / 2)出し、残り 12rem を右へ出す。目次はヘッダー右端より 9rem 外に出るが、
-         本文とヘッダーの左端が揃うほうが読みやすい(1280 / 1536px で確認) */
+    /* 幅の制御: 枠(main)はヘッダーと同じ max-w-site(60rem)。記事本文はその中で max-w-2xl(42rem)に留め、
+       左端をヘッダーのワードマークに揃える(和文 40 字前後が読みやすい)。
+       PC で目次を出すときは、本文の右に 3rem 空けて 12rem の目次カラムを置く(42 + 3 + 12 = 57rem で枠に収まる) */
   }
   <div
     class:list={[
-      showToc &&
-        'lg:-mx-24 lg:grid lg:grid-cols-[minmax(0,1fr)_12rem] lg:items-start lg:gap-12 xl:-ml-12 xl:-mr-48',
+      showToc && 'lg:grid lg:grid-cols-[minmax(0,42rem)_12rem] lg:items-start lg:gap-12',
     ]}
   >
-    <article class="w-full min-w-0">
+    <article class="w-full min-w-0 max-w-2xl">
       <header class="mb-8">
         <p class="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs text-ink-muted">
           {/* 日付だけ等幅。タグは本文フォント */}
@@ -59,7 +54,10 @@ const showToc = tocHeadings.length >= 3;
             )
           }
         </p>
-        <h1 transition:name={`post-title-${post.id}`} class="text-3xl font-bold tracking-tight">
+        <h1
+          transition:name={`post-title-${post.id}`}
+          class="text-3xl font-bold tracking-[-0.02em] sm:text-4xl"
+        >
           {post.data.title}
         </h1>
         <!-- 見出し下の罫線。左端だけ朱(朱書きのケイ) -->
