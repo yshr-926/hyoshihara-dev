@@ -21,7 +21,6 @@ const isoDate = date.toISOString().slice(0, 10);
 >
   {/* 下線はオン/オフではなく色のフェードで出す(透明→コバルト) */}
   <h2
-    transition:name={`post-title-${post.id}`}
     class="text-lg font-semibold tracking-tight underline decoration-transparent underline-offset-4 transition-[text-decoration-color] duration-200 ease-out-strong group-hover:decoration-cobalt/40"
   >
     {title}

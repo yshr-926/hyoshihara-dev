@@ -161,10 +161,7 @@ const linkClass =
                       {post.data.date.toISOString().slice(0, 10)}
                     </time>
                     {/* 下線はオン/オフではなく色のフェードで出す(透明→コバルト) */}
-                    <span
-                      transition:name={`post-title-${post.id}`}
-                      class="font-medium underline decoration-transparent underline-offset-4 transition-[text-decoration-color] duration-200 ease-out-strong group-hover:decoration-cobalt/40"
-                    >
+                    <span class="font-medium underline decoration-transparent underline-offset-4 transition-[text-decoration-color] duration-200 ease-out-strong group-hover:decoration-cobalt/40">
                       {post.data.title}
                     </span>
                   </a>
