@@ -98,9 +98,9 @@
     scroll-margin-top: 4.5rem;
   }
 
-  /* テキスト選択も朱書きに揃える */
+  /* テキスト選択は青図のコバルトに揃える(朱は現在地の印だけに使うため) */
   ::selection {
-    background: light-dark(rgb(196 58 30 / 0.22), rgb(240 105 63 / 0.32));
+    background: light-dark(rgb(26 86 176 / 0.2), rgb(122 169 232 / 0.3));
   }
 }
 
@@ -377,10 +377,11 @@ details .toc-marker {
   transform: scale(0.96);
   opacity: 0.7;
 }
-/* コピー完了 = 「確定」の意味なので朱。テキストも JS が差し替える前提 */
+/* コピー完了は色ではなく文言で伝える(JS がボタンのテキストを差し替える)。
+   朱は現在地の印だけに使うため、ここは通常の文字色 + 枠線に留める */
 .code-figure__copy[data-copied] {
-  color: var(--color-shu);
-  border-color: var(--color-shu);
+  color: var(--color-ink);
+  border-color: var(--color-line);
 }
 /* figcaption の直下でなく figure 直下に置かれた場合は右上に重ねる */
 .code-figure > .code-figure__copy {
@@ -497,6 +498,14 @@ details .toc-marker {
   }
   /* 本文中の外部リンクは URL を添える(紙では辿れないため) */
   .prose a[href^='http']::after {
+    content: ' (' attr(href) ')';
+    font-family: var(--font-mono);
+    font-size: 0.8em;
+    color: var(--color-ink-muted);
+    word-break: break-all;
+  }
+  /* 連絡先リンク(rel="me")も同様に URL を添える */
+  a[rel~='me']::after {
     content: ' (' attr(href) ')';
     font-family: var(--font-mono);
     font-size: 0.8em;
