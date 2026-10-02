@@ -4,31 +4,94 @@ import '@fontsource/ibm-plex-mono/500.css';
 import '../styles/global.css';
 import { ClientRouter } from 'astro:transitions';
 import { contacts, profile } from '../data/profile';
+import { contactsEn } from '../data/profile.en';
 
 interface Props {
   title: string;
   description?: string;
   /** OGP画像のパス(サイトルート基準、例: /og/blog/hello-world.png)。絶対URL化して出力する */
   ogImage?: string;
+  /** OGP 画像の代替説明(og:image:alt / twitter:image:alt)。既定: title */
+  ogImageAlt?: string;
+  /** og:type。既定 'website'。記事は 'article' */
+  ogType?: 'website' | 'article';
+  /** <html lang> と、ヘッダー・フッター・スキップリンク・テーマ操作の UI 文言。既定 'ja' */
+  lang?: 'ja' | 'en';
+  /** 翻訳ページ。渡すとヘッダーに言語切替リンク、head に hreflang(self + alternate + x-default)を出す */
+  alternate?: { lang: 'ja' | 'en'; href: string };
+  /** JSON-LD。オブジェクトか配列。<script type="application/ld+json"> で出力 */
+  structuredData?: Record<string, unknown> | Record<string, unknown>[];
 }
 
 // 枠の幅はヘッダー・main・フッターで共通(global.css の --container-site = max-w-site)。
 // 記事本文のような読みやすい幅の制御は、各ページが枠の中で行う
-const { title, description = `${profile.title}。${profile.domain}`, ogImage } = Astro.props;
+const {
+  title,
+  description = `${profile.title}。${profile.domain}`,
+  ogImage,
+  ogImageAlt = title,
+  ogType = 'website',
+  lang = 'ja',
+  alternate,
+  structuredData,
+} = Astro.props;
 
 // Astro.site が設定されていれば絶対URLに、なければ相対のまま
 const ogImageUrl = ogImage ? new URL(ogImage, Astro.site ?? Astro.url).href : undefined;
+// TODO: astro.config.mjs の site が独自ドメイン確定までの仮値のため、canonical / og:url も暫定
+const canonicalUrl = new URL(Astro.url.pathname, Astro.site ?? Astro.url).href;
 
-// ナビの現在地。/blog/... 配下は「記事」を現在地とする。末尾スラッシュの有無は区別しない
-// (trailingSlash: 'ignore' のため)。SSR ではここで aria-current を出し、
-// View Transitions 遷移後は下の script が張り直す(ヘッダーは transition:persist で残るため)。
-const currentPath = Astro.url.pathname.replace(/\/+$/, '') || '/';
-const isCurrent = (href: string) =>
-  href === '/' ? currentPath === '/' : currentPath === href || currentPath.startsWith(`${href}/`);
-const navItems = [{ href: '/blog', label: '記事' }];
+// UI 文言。lang で切り替える辞書(ナビ・スキップリンク・テーマ操作・フッター)。
+// テーマの状態ラベル・読み上げ文言は client 側 script でも同じ形で再定義している(SSR と実行時で lang の扱いが分かれるため)
+const UI = {
+  ja: {
+    skipLink: '本文へ移動',
+    navHome: 'プロフィール',
+    navPosts: '記事',
+    switchTo: { ja: '日本語', en: 'English' },
+    themeAriaLabel: '表示テーマを切り替える',
+    subscribe: '更新を購読',
+    rss: 'RSS',
+  },
+  en: {
+    skipLink: 'Skip to content',
+    navHome: 'Profile',
+    navPosts: 'Posts',
+    switchTo: { ja: '日本語', en: 'English' },
+    themeAriaLabel: 'Toggle display theme',
+    subscribe: 'Subscribe',
+    rss: 'RSS',
+  },
+} as const;
+const t = UI[lang];
+
+// ナビの現在地。/blog/... 配下は「記事」を現在地とする。プロフィール項目の href は言語ごとの自ページ
+// (ja: / , en: /en/)を指す。比較前に pathname/href の末尾スラッシュを同じ規則で正規化する
+// (trailingSlash: 'ignore' のため URL としてはどちらでも動くが、表記と aria-current 判定を揃える)。
+// SSR ではここで aria-current を出し、View Transitions 遷移後は下の script が張り直す
+// (ヘッダーは transition:persist で残るため、遷移先の lang に合わせて張り直す必要がある)。
+const normalizePath = (path: string) => (path === '/' ? path : path.replace(/\/+$/, ''));
+const currentPath = normalizePath(Astro.url.pathname) || '/';
+const homeHref = lang === 'en' ? '/en/' : '/';
+const isCurrent = (href: string) => {
+  const normalizedHref = normalizePath(href) || '/';
+  return (
+    currentPath === normalizedHref ||
+    (normalizedHref !== '/' && currentPath.startsWith(`${normalizedHref}/`))
+  );
+};
+const navItems = [
+  { href: homeHref, label: t.navHome },
+  { href: '/blog', label: t.navPosts },
+];
 
 // フッターの連絡先は src/data/profile.ts の contacts を使う(トップと二重管理しない)。
+// lang='en' のときは役割ラベルだけ profile.en.ts の contactsEn(英語)に差し替える(href/handle は共通)。
 // 別タブでは開かない(採用担当がタブを見失う)。rel="me" は同一人物のプロフィールである宣言(メールには付けない)
+// primary を先頭にする
+const orderedContacts = [...(lang === 'en' ? contactsEn : contacts)].sort(
+  (a, b) => Number(b.primary ?? false) - Number(a.primary ?? false),
+);
 const year = new Intl.DateTimeFormat('en', { timeZone: 'Asia/Tokyo', year: 'numeric' }).format(
   new Date(),
 );
@@ -48,20 +111,51 @@ const contentSwap = {
 ---
 
 <!doctype html>
-<html lang="ja">
+<html lang={lang}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="generator" content={Astro.generator} />
     <title>{title}</title>
     <meta name="description" content={description} />
+    <link rel="canonical" href={canonicalUrl} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="alternate" type="application/rss+xml" title="hyoshihara.dev" href="/rss.xml" />
+    {
+      /* hreflang は自己参照 + 相手言語 + x-default(日本語)の 3 本。alternate が無いページには出さない */
+      alternate && (
+        <>
+          <link rel="alternate" hreflang={lang} href={canonicalUrl} />
+          <link
+            rel="alternate"
+            hreflang={alternate.lang}
+            href={new URL(alternate.href, Astro.site ?? Astro.url).href}
+          />
+          <link
+            rel="alternate"
+            hreflang="x-default"
+            href={
+              lang === 'ja' ? canonicalUrl : new URL(alternate.href, Astro.site ?? Astro.url).href
+            }
+          />
+        </>
+      )
+    }
     <!-- OGP: 画像は astro-og-canvas でビルド時に静的生成(/og/blog/<slug>.png) -->
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
-    <meta property="og:type" content="website" />
+    <meta property="og:type" content={ogType} />
+    <meta property="og:url" content={canonicalUrl} />
     {ogImageUrl && <meta property="og:image" content={ogImageUrl} />}
+    {ogImageUrl && <meta property="og:image:alt" content={ogImageAlt} />}
     {ogImageUrl && <meta name="twitter:card" content="summary_large_image" />}
     {ogImageUrl && <meta name="twitter:image" content={ogImageUrl} />}
+    {ogImageUrl && <meta name="twitter:image:alt" content={ogImageAlt} />}
+    {
+      structuredData && (
+        <script type="application/ld+json" set:html={JSON.stringify(structuredData)} />
+      )
+    }
     {
       /* テーマの復元は描画前(head内・同期)に行う。body描画後だと一瞬逆のテーマが見える(FOUC)。
         色は light-dark() で解決されるので、:root の color-scheme を固定するだけで全色が切り替わる。
@@ -70,6 +164,7 @@ const contentSwap = {
     }
     <script is:inline>
       (() => {
+        // 保存値が 'light' / 'dark' のときだけ固定する。無ければ auto(delete)= OS 設定に追従
         const apply = () => {
           const stored = localStorage.getItem('theme');
           const root = document.documentElement;
@@ -88,17 +183,28 @@ const contentSwap = {
       /* スキップリンク。キーボードの最初の Tab で現れ、本文(main#main)へ飛ぶ。
         枠はコバルト = 操作の色。朱は「現在地」に取ってあるのでここでは使わない。 */
     }
-    <a href="#main" class="skip-link">本文へ移動</a>
-    <header id="site-header" transition:persist class="site-header sticky top-0 z-50">
-      {/* 高さは 52px 固定(min-h-13)。中の操作要素は 44px 角の操作領域を持つ(モバイルの指先基準) */}
+    <a href="#main" class="skip-link">{t.skipLink}</a>
+    {
+      /* persist キーに lang を含める: 同じ言語内の遷移(/ → /blog 等)ではヘッダー DOM をそのまま
+        使い回し(scroll-edge・テーマの状態を保つ)、言語が変わる遷移(/ ⇄ /en/)では別キー扱いになり
+        Astro が遷移先ページの SSR 済みヘッダー(正しいラベル・href・aria-label)に差し替える。 */
+    }
+    <header
+      id="site-header"
+      transition:persist={`site-header-${lang}`}
+      class="site-header sticky top-0 z-50"
+    >
+      {
+        /* 高さは 52px 固定(min-h-13)。中の操作要素は 44px 角の操作領域を持つ(モバイルの指先基準)。
+        flex-wrap は極端な文字拡大(200%等)でワードマークとナビが 1 行に収まらないときの折り返し用で、
+        通常のフォントサイズでは幅が足りるため見た目は変わらない */
+      }
       <nav
-        aria-label="メイン"
-        class="mx-auto flex min-h-13 max-w-site items-center justify-between px-4"
+        aria-label={lang === 'en' ? 'Main' : 'メイン'}
+        class="mx-auto flex min-h-13 max-w-site flex-wrap items-center justify-between gap-x-2 px-4"
       >
         <a
-          href="/"
-          data-nav
-          aria-current={isCurrent('/') ? 'page' : undefined}
+          href={homeHref}
           class="group -mx-2 inline-flex min-h-11 items-center gap-2 rounded-sm px-2 font-mono text-sm font-medium tracking-tight transition-colors duration-200 ease-out-strong hover:text-cobalt active:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
         >
           {/* 朱の角印。ワードマークの印 */}
@@ -108,14 +214,19 @@ const contentSwap = {
           ></span>
           hyoshihara.dev
         </a>
-        <ul class="flex items-center gap-1 text-sm">
-          {/* 操作ラベルは日本語。現在地は文字をインクに戻し、朱の下線を引く(朱 = 現在地の印) */}
+        <ul class="flex flex-wrap items-center gap-1 text-sm">
+          {
+            /* 操作ラベルは日本語。現在地は文字をインクに戻し、朱の下線を引く(朱 = 現在地の印)。
+              aria-current はこのラベル付きナビだけに付け、ワードマークには付けない(WAI-ARIA は
+              関連要素の集合で current を 1 要素に限定するのが望ましいため) */
+          }
           {
             navItems.map(({ href, label }) => (
               <li>
                 <a
                   href={href}
                   data-nav
+                  data-nav-home={href === homeHref ? 'true' : undefined}
                   aria-current={isCurrent(href) ? 'page' : undefined}
                   class="inline-flex min-h-11 items-center rounded-sm px-2 text-ink-muted underline-offset-[0.45em] transition-colors duration-200 ease-out-strong hover:text-ink active:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt aria-[current=page]:text-ink aria-[current=page]:underline aria-[current=page]:decoration-shu aria-[current=page]:decoration-2"
                 >
@@ -124,18 +235,31 @@ const contentSwap = {
               </li>
             ))
           }
+          {
+            alternate && (
+              <li>
+                <a
+                  href={alternate.href}
+                  hreflang={alternate.lang}
+                  class="inline-flex min-h-11 items-center rounded-sm px-2 font-mono text-xs text-ink-muted transition-colors duration-200 ease-out-strong hover:text-ink active:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
+                >
+                  {t.switchTo[alternate.lang]}
+                </a>
+              </li>
+            )
+          }
           <li class="-mr-3">
             {
-              /* ライト / ダークの 2 値トグル。アイコン: 太陽=ライト、月=ダーク。
-                状態は data-mode で持ち、出し分けは末尾の scoped style。
-                aria-pressed="true" が「ダークが入っている」の意味。読み上げは aria-label + aria-live の sr-only。 */
+              /* 3 状態(ライト / ダーク / 端末に合わせる)を巡回するトグル。
+                アイコン: 太陽=ライト、月=ダーク、半月=端末に合わせる。
+                状態は data-mode で持ち、出し分けは末尾の scoped style。即時切替(transition なし)。
+                aria-pressed は 3 状態のため使わない。読み上げは aria-label + title + aria-live の sr-only。 */
             }
             <button
               id="theme-toggle"
               type="button"
-              aria-label="ダークモード"
-              aria-pressed="false"
-              class="theme-toggle grid size-11 place-items-center rounded-sm text-ink-muted transition-[color,transform] duration-200 ease-out-strong hover:text-ink active:scale-95 active:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
+              aria-label={t.themeAriaLabel}
+              class="theme-toggle grid size-11 place-items-center rounded-sm text-ink-muted transition-colors duration-200 ease-out-strong hover:text-ink active:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
             >
               <svg
                 class="size-4"
@@ -155,22 +279,20 @@ const contentSwap = {
                 <path
                   class="theme-toggle__moon"
                   d="M15.5 12.4A6.5 6.5 0 0 1 7.6 4.5a6.5 6.5 0 1 0 7.9 7.9Z"></path>
+                <g class="theme-toggle__auto">
+                  <circle cx="10" cy="10" r="6.5"></circle>
+                  <path d="M10 3.5a6.5 6.5 0 0 0 0 13Z" fill="currentColor" stroke="none"></path>
+                </g>
               </svg>
             </button>
             <script is:inline>
-              // 描画前に現在のテーマをアイコンへ写す(head のスクリプトと同じ判定。保存値がなければ OS 設定)。
+              // 描画前に現在のテーマをアイコンへ写す(head のスクリプトと同じ判定。保存値がなければ端末=auto)。
               // 下の module script を待つと初回描画でアイコンが一瞬入れ替わる
               (() => {
                 const stored = localStorage.getItem('theme');
-                const theme =
-                  stored === 'light' || stored === 'dark'
-                    ? stored
-                    : matchMedia('(prefers-color-scheme: dark)').matches
-                      ? 'dark'
-                      : 'light';
+                const theme = stored === 'light' || stored === 'dark' ? stored : 'auto';
                 const button = document.getElementById('theme-toggle');
                 button.dataset.mode = theme;
-                button.setAttribute('aria-pressed', String(theme === 'dark'));
               })();
             </script>
             <span id="theme-status" class="sr-only" aria-live="polite"></span>
@@ -191,46 +313,68 @@ const contentSwap = {
       <slot />
     </main>
     {
-      /* フッターは 2 行: 連絡先のテキストリンクと ©。
+      /* フッターは 2 行: 連絡先(役割 + リンク)と ©。
         各リンクは 44px 角以上の操作領域(min-h-11 min-w-11 + 横 padding)。
         横 padding ぶんはリストの負マージンで相殺し、先頭の文字位置を本文と揃える */
     }
     <footer class="mx-auto w-full max-w-site border-t border-line px-4 pb-10 pt-6 text-sm">
-      <ul class="-mx-2 flex flex-wrap gap-x-1">
+      <ul class="-mx-2 flex flex-wrap items-center gap-x-1 gap-y-1">
         {
-          contacts.map(({ label, href }) => (
-            <li>
+          orderedContacts.map(({ label, href, role }) => (
+            <li class="inline-flex items-center gap-1.5 px-2">
+              {role && <span class="text-ink-muted">{role}</span>}
               <a
                 href={href}
                 rel="me noopener"
-                class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-sm px-2 text-cobalt underline decoration-cobalt/40 underline-offset-4 transition-colors duration-200 ease-out-strong hover:text-ink hover:decoration-current active:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
+                class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-sm px-2 -mx-2 text-cobalt underline decoration-cobalt/40 underline-offset-4 transition-colors duration-200 ease-out-strong hover:text-ink hover:decoration-current active:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
               >
                 {label}
               </a>
             </li>
           ))
         }
+        <li class="inline-flex items-center gap-1.5 px-2">
+          <span class="text-ink-muted">{t.subscribe}</span>
+          <a
+            href="/rss.xml"
+            class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-sm px-2 -mx-2 text-cobalt underline decoration-cobalt/40 underline-offset-4 transition-colors duration-200 ease-out-strong hover:text-ink hover:decoration-current active:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
+          >
+            {t.rss}
+          </a>
+        </li>
       </ul>
       <p class="mt-2 font-mono text-xs text-ink-muted">© {year} {profile.handle}</p>
     </footer>
     <script>
       // スクロールしてコンテンツがヘッダーに重なったときだけ罫線を出す(scroll edge effect)。
-      // ヘッダーは transition:persist で残るため、リスナーの登録は初回の一度だけでよい。
-      const header = document.getElementById('site-header');
-      const update = () => header?.toggleAttribute('data-scrolled', window.scrollY > 8);
+      // ヘッダーは lang ごとに別 persist キー(id は共通)のため、言語切替で DOM ノードが
+      // 差し替わることがある。header 要素は毎回 DOM から引き直す(モジュール変数にキャッシュしない)。
+      const update = () => {
+        document
+          .getElementById('site-header')
+          ?.toggleAttribute('data-scrolled', window.scrollY > 8);
+      };
       update();
       window.addEventListener('scroll', update, { passive: true });
       document.addEventListener('astro:page-load', update);
 
-      // ナビの現在地。ヘッダーは persist するので、遷移のたびに URL から張り直す。
-      // 判定は SSR 側(isCurrent)と同じ: 末尾スラッシュを無視し、配下のパスも現在地に含める
+      // ナビの現在地。同じ言語内の遷移(ヘッダー DOM が persist される)では、遷移のたびに
+      // URL から張り直す必要がある。対象はラベル付きナビ(プロフィール / 記事)だけで、
+      // ワードマークには aria-current を付けない(current は集合内で 1 要素に限定する)。
+      // プロフィール項目は data-nav-home で判定する(href は lang ごとに / または /en/ なので、
+      // ここでは href 文字列を決め打ちしない)。SSR 側(isCurrent/normalizePath)と同じ規則で
+      // 末尾スラッシュを正規化してから比較する。
+      const normalizePath = (path: string) => (path === '/' ? path : path.replace(/\/+$/, ''));
       const syncCurrent = () => {
-        const path = location.pathname.replace(/\/+$/, '') || '/';
+        const path = normalizePath(location.pathname) || '/';
         for (const link of document.querySelectorAll<HTMLAnchorElement>(
           '#site-header a[data-nav]',
         )) {
-          const href = link.getAttribute('href') ?? '';
-          const match = href === '/' ? path === '/' : path === href || path.startsWith(`${href}/`);
+          const href = normalizePath(link.getAttribute('href') ?? '') || '/';
+          const match =
+            link.dataset.navHome === 'true'
+              ? path === href
+              : path === href || path.startsWith(`${href}/`);
           if (match) link.setAttribute('aria-current', 'page');
           else link.removeAttribute('aria-current');
         }
@@ -239,54 +383,73 @@ const contentSwap = {
       document.addEventListener('astro:page-load', syncCurrent);
 
       // 表示テーマの切り替え(即時、演出なし)。テーマ本体(<html data-theme>)は head の
-      // インラインスクリプトが描画前に張るので、ここは反転・保存とアイコン/読み上げの同期だけ。
-      // 選択肢はライト / ダークの 2 つ。保存値が無いあいだは OS 設定を現在のテーマとみなす。
-      type Theme = 'light' | 'dark';
+      // インラインスクリプトが描画前に張るので、ここは巡回・保存とアイコン/読み上げの同期だけ。
+      // 3 状態(ライト → ダーク → 端末に合わせる → …)を巡回する。「端末に合わせる」は保存値を消して OS 追従に戻す。
+      type Theme = 'light' | 'dark' | 'auto';
       const root = document.documentElement;
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
+
+      const THEME_LABEL: Record<'ja' | 'en', Record<Theme, string>> = {
+        ja: { light: 'ライト', dark: 'ダーク', auto: '端末に合わせる' },
+        en: { light: 'Light', dark: 'Dark', auto: 'Match device' },
+      };
+      const STATUS_TEXT: Record<'ja' | 'en', (label: string) => string> = {
+        ja: (label) => `表示テーマを${label}にしました`,
+        en: (label) => `Display theme set to ${label}`,
+      };
+      // 言語が変わる遷移ではヘッダー DOM が差し替わり <html lang> も変わるため、
+      // 使うたびに読み直す(モジュール読み込み時の一度きりの値にしない)。
+      const uiLang = (): 'ja' | 'en' => (root.lang === 'en' ? 'en' : 'ja');
 
       // ボタンは毎回 DOM から引き直す(遷移をまたいで同じノードである保証はないため)
       const themeButton = () => document.getElementById('theme-toggle');
       const themeStatus = () => document.getElementById('theme-status');
 
+      // 保存値が無ければ 'auto'(見た目は OS 設定に追従した状態)
       const currentTheme = (): Theme => {
-        const t = root.dataset.theme;
-        if (t === 'light' || t === 'dark') return t;
-        return prefersDark.matches ? 'dark' : 'light';
+        const stored = root.dataset.theme;
+        return stored === 'light' || stored === 'dark' ? stored : 'auto';
       };
 
-      const THEME_LABEL: Record<Theme, string> = { light: 'ライト', dark: 'ダーク' };
+      const NEXT_THEME: Record<Theme, Theme> = { light: 'dark', dark: 'auto', auto: 'light' };
 
-      // アイコン(data-mode)と押下状態(aria-pressed)を現在のテーマに合わせる
+      // アイコン(data-mode)を現在のテーマに合わせる
       const syncToggle = () => {
         const button = themeButton();
         if (!button) return;
+        const lang = uiLang();
         const theme = currentTheme();
+        const label = THEME_LABEL[lang][theme];
         button.dataset.mode = theme;
-        button.setAttribute('aria-pressed', String(theme === 'dark'));
-        button.title = `表示テーマ: ${THEME_LABEL[theme]}`;
+        button.title = `${lang === 'en' ? 'Display theme: ' : '表示テーマ: '}${label}`;
       };
       syncToggle();
 
       const applyTheme = (theme: Theme) => {
-        root.dataset.theme = theme;
-        localStorage.setItem('theme', theme);
+        if (theme === 'auto') {
+          delete root.dataset.theme;
+          localStorage.removeItem('theme');
+        } else {
+          root.dataset.theme = theme;
+          localStorage.setItem('theme', theme);
+        }
         syncToggle();
+        const lang = uiLang();
         const status = themeStatus();
-        if (status) status.textContent = `表示テーマを${THEME_LABEL[theme]}にしました`;
+        if (status) status.textContent = STATUS_TEXT[lang](THEME_LABEL[lang][theme]);
       };
 
       // クリックは document 側で受ける(委譲)。ボタンが差し替わってもリスナーが外れない
       document.addEventListener('click', (e) => {
         if (!(e.target instanceof Element)) return;
         if (!e.target.closest('#theme-toggle')) return;
-        applyTheme(currentTheme() === 'dark' ? 'light' : 'dark');
+        applyTheme(NEXT_THEME[currentTheme()]);
       });
 
       // 遷移後は <html> の属性が張り直された直後なので、アイコンも合わせ直す
       document.addEventListener('astro:after-swap', syncToggle);
       document.addEventListener('astro:page-load', syncToggle);
-      // 未選択(OS 追従)のあいだは、OS 側の変更にアイコンを追従させる
+      // 「端末に合わせる」のあいだは、OS 側の変更にアイコンを追従させる(見た目は color-scheme が自動で切り替える)
       prefersDark.addEventListener('change', syncToggle);
     </script>
   </body>
@@ -321,34 +484,22 @@ const contentSwap = {
     transform: none;
   }
 
-  /* テーマボタンのアイコン出し分け。退く図形は縮んで回りながら消え、入る図形は逆から現れる。
-     transform/opacity のみ。状態はボタンの data-mode(light / dark)。
+  /* テーマボタンのアイコン出し分け。方針「テーマ切替は即時」のため transition は無し(opacity の
+     切替も即時)。状態はボタンの data-mode(light / dark / auto)。
      data-mode が付く前(SSR 直後)は太陽を出しておく。ここが一次定義(global.css には置かない)。 */
-  .theme-toggle svg > * {
-    transform-origin: center;
-    transition:
-      opacity 200ms var(--ease-out-strong),
-      transform 300ms var(--ease-out-strong);
-  }
-  .theme-toggle .theme-toggle__moon {
+  .theme-toggle .theme-toggle__moon,
+  .theme-toggle .theme-toggle__auto {
     opacity: 0;
-    transform: rotate(-60deg) scale(0.6);
   }
-  .theme-toggle[data-mode='dark'] .theme-toggle__sun {
+  .theme-toggle[data-mode='dark'] .theme-toggle__sun,
+  .theme-toggle[data-mode='auto'] .theme-toggle__sun {
     opacity: 0;
-    transform: rotate(60deg) scale(0.6);
   }
   .theme-toggle[data-mode='dark'] .theme-toggle__moon {
     opacity: 1;
-    transform: none;
   }
-  /* 動きを減らす設定では回転・スケールをやめてフェードだけ残す
-     (どの設定かは色ではなく形で判別するので、opacity は必ず残す) */
-  @media (prefers-reduced-motion: reduce) {
-    .theme-toggle .theme-toggle__moon,
-    .theme-toggle[data-mode='dark'] .theme-toggle__sun {
-      transform: none;
-    }
+  .theme-toggle[data-mode='auto'] .theme-toggle__auto {
+    opacity: 1;
   }
 
   /* 高コントラスト設定ではフッターの罫線をはっきりさせる(line トークンは半透明のため) */
