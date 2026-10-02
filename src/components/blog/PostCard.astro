@@ -31,8 +31,9 @@ const isoDate = date.toISOString().slice(0, 10);
     {/* 日付だけ等幅。タグは本文フォント(和文混在の可能性があるため) */}
     <time datetime={isoDate} class="font-mono">{isoDate}</time>
     {
+      /* カード全体が <a> なのでタグはリンクにしない(通常色の非リンク)。リンクは記事ページ側だけ */
       tags.length > 0 && (
-        <span class="flex flex-wrap gap-x-2 text-cobalt">
+        <span class="flex flex-wrap gap-x-2 text-ink-muted">
           {tags.map((tag) => (
             <span>#{tag}</span>
           ))}

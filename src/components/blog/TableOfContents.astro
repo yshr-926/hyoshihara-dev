@@ -23,8 +23,11 @@ const items = headings.filter((h) => h.depth === 2 || h.depth === 3);
 <nav aria-label="目次" data-toc class="toc">
   {
     showLabel && (
-      <p class="label-mono mb-2" aria-hidden="true">
-        CONTENTS
+      <p class="mb-2">
+        <span class="label-mono block" aria-hidden="true">
+          CONTENTS
+        </span>
+        <span class="mt-0.5 block text-sm font-semibold tracking-tight">目次</span>
       </p>
     )
   }

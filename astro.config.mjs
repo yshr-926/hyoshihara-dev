@@ -4,6 +4,8 @@ import { defineConfig } from 'astro/config';
 import mdx from '@astrojs/mdx';
 import tailwindcss from '@tailwindcss/vite';
 import sitemap from '@astrojs/sitemap';
+import { rehypeHeadingIds, unified } from '@astrojs/markdown-remark';
+import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 
 /**
  * コードフェンスのメタ(```ts title="src/foo.ts")から title を拾い、
@@ -38,6 +40,23 @@ export default defineConfig({
       themes: { light: 'github-light', dark: 'github-dark' },
       transformers: [codeBlockTitle],
     },
+    // markdown.remarkPlugins / rehypePlugins は Astro 7 で deprecated のため、
+    // unified() 経由で markdown.processor に渡す(公式アップグレードガイド準拠)。
+    // 見出しへの共有リンク(# アンカー)。rehypeHeadingIds は Astro が見出しに振る id と
+    // 目次(headings の slug)を一致させるため、後続プラグインより先に置く必要がある
+    processor: unified({
+      rehypePlugins: [
+        rehypeHeadingIds,
+        [
+          rehypeAutolinkHeadings,
+          {
+            behavior: 'append',
+            properties: { class: 'heading-anchor', ariaLabel: 'この見出しへのリンク' },
+            content: { type: 'text', value: '#' },
+          },
+        ],
+      ],
+    }),
   },
 
   vite: {

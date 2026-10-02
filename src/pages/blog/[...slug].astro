@@ -3,6 +3,8 @@ import { getCollection, render } from 'astro:content';
 import Layout from '../../layouts/Layout.astro';
 import KeyPoints from '../../components/blog/KeyPoints.astro';
 import TableOfContents from '../../components/blog/TableOfContents.astro';
+import AuthorBox from '../../components/blog/AuthorBox.astro';
+import { profile } from '../../data/profile';
 
 export async function getStaticPaths() {
   // 下書き(draft: true)は HTML を生成しない
@@ -22,12 +24,46 @@ const keyPoints = post.data.keyPoints ?? [];
 // 目次は h2〜h3 が 3 つ以上あるときだけ出す(短い記事には不要)
 const tocHeadings = headings.filter((h) => h.depth === 2 || h.depth === 3);
 const showToc = tocHeadings.length >= 3;
+
+// 関連記事: 同じタグを 1 つ以上共有する公開記事を、共有数の多い順・日付降順で最大 2 本(自身を除く)
+const allPosts = await getCollection('blog', ({ data }) => !data.draft);
+const relatedPosts = allPosts
+  .filter((p) => p.id !== post.id)
+  .map((p) => ({
+    post: p,
+    sharedCount: p.data.tags.filter((tag) => post.data.tags.includes(tag)).length,
+  }))
+  .filter((entry) => entry.sharedCount > 0)
+  .sort(
+    (a, b) =>
+      b.sharedCount - a.sharedCount || b.post.data.date.valueOf() - a.post.data.date.valueOf(),
+  )
+  .slice(0, 2)
+  .map((entry) => entry.post);
+
+const publishedIso = post.data.date.toISOString();
+const updatedIso = (post.data.updated ?? post.data.date).toISOString();
+// 末尾スラッシュを canonical(Layout 側の Astro.url.pathname 由来)と揃える
+const pageUrl = new URL(`/blog/${post.id}/`, Astro.site ?? Astro.url).href;
+const authorUrl = new URL('/', Astro.site ?? Astro.url).href;
 ---
 
 <Layout
   title={`${post.data.title} — hyoshihara`}
   description={post.data.description}
   ogImage={`/og/blog/${post.id}.png`}
+  ogImageAlt={post.data.title}
+  ogType="article"
+  structuredData={{
+    '@context': 'https://schema.org',
+    '@type': 'BlogPosting',
+    headline: post.data.title,
+    description: post.data.description,
+    datePublished: publishedIso,
+    dateModified: updatedIso,
+    author: { '@type': 'Person', name: profile.fullName, url: authorUrl },
+    url: pageUrl,
+  }}
 >
   {
     /* 幅の制御: 枠(main)はヘッダーと同じ max-w-site(60rem)。記事本文はその中で max-w-2xl(42rem)に留め、
@@ -44,11 +80,22 @@ const showToc = tocHeadings.length >= 3;
         <p class="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs text-ink-muted">
           {/* 日付だけ等幅。タグは本文フォント */}
           <time datetime={isoDate} class="font-mono">{isoDate}</time>
+          <a
+            href="/"
+            class="inline-flex min-h-11 items-center text-ink-muted underline decoration-transparent underline-offset-4 transition-[color,text-decoration-color] duration-200 ease-out-strong hover:text-ink hover:decoration-cobalt/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
+          >
+            {profile.fullNameJa}
+          </a>
           {
             post.data.tags.length > 0 && (
-              <span class="flex flex-wrap gap-x-2 text-cobalt">
+              <span class="flex flex-wrap gap-x-2">
                 {post.data.tags.map((tag) => (
-                  <span>#{tag}</span>
+                  <a
+                    href={`/blog/tags/${encodeURIComponent(tag)}`}
+                    class="inline-flex min-h-11 items-center text-cobalt underline decoration-cobalt/40 underline-offset-4 transition-colors duration-200 ease-out-strong hover:text-ink hover:decoration-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
+                  >
+                    #{tag}
+                  </a>
                 ))}
               </span>
             )
@@ -102,6 +149,43 @@ const showToc = tocHeadings.length >= 3;
           <Content />
         </div>
       </div>
+
+      <div class="mt-8">
+        <AuthorBox />
+      </div>
+
+      {
+        relatedPosts.length > 0 && (
+          <section aria-labelledby="related-posts-heading" class="mt-8">
+            <p class="label-mono" aria-hidden="true">
+              RELATED
+            </p>
+            <h2 id="related-posts-heading" class="mt-0.5 text-lg font-semibold tracking-tight">
+              関連記事
+            </h2>
+            <ul class="mt-3 divide-y divide-line">
+              {relatedPosts.map((related) => (
+                <li>
+                  <a
+                    href={`/blog/${related.id}`}
+                    class="group -mx-2 flex min-h-11 flex-wrap items-baseline gap-x-4 gap-y-1 rounded-sm px-2 py-2 text-sm leading-list transition-colors duration-200 ease-out-strong hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
+                  >
+                    <span class="font-medium underline decoration-transparent underline-offset-4 transition-[text-decoration-color] duration-200 ease-out-strong group-hover:decoration-cobalt/40">
+                      {related.data.title}
+                    </span>
+                    <time
+                      datetime={related.data.date.toISOString().slice(0, 10)}
+                      class="shrink-0 font-mono text-xs text-ink-muted"
+                    >
+                      {related.data.date.toISOString().slice(0, 10)}
+                    </time>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )
+      }
     </article>
 
     {
@@ -112,7 +196,24 @@ const showToc = tocHeadings.length >= 3;
       )
     }
   </div>
+  <span id="copy-status" role="status" aria-live="polite" class="sr-only"></span>
 </Layout>
+
+<style is:global>
+  /* 見出しの共有リンク(rehype-autolink-headings が付与)。
+     平常時は隠し、見出しへのホバー/フォーカス内でだけ現す(常時表示は文字数の少ない見出しでうるさいため) */
+  .prose .heading-anchor {
+    margin-left: 0.4em;
+    color: var(--color-ink-muted);
+    text-decoration: none;
+    opacity: 0;
+    transition: opacity 200ms var(--ease-out-strong);
+  }
+  .prose :is(h2, h3):hover .heading-anchor,
+  .prose .heading-anchor:focus-visible {
+    opacity: 1;
+  }
+</style>
 
 <script>
   /**
@@ -154,19 +255,27 @@ const showToc = tocHeadings.length >= 3;
       button.setAttribute('aria-label', title ? `${title} のコードをコピー` : 'コードをコピー');
 
       let timer: ReturnType<typeof setTimeout> | undefined;
+      let statusTimer: ReturnType<typeof setTimeout> | undefined;
       button.addEventListener('click', async () => {
         const code = pre.querySelector('code')?.textContent ?? pre.textContent ?? '';
+        const status = document.getElementById('copy-status');
         try {
           await navigator.clipboard.writeText(code);
           button.dataset.copied = '';
           button.textContent = 'コピーしました';
+          if (status) status.textContent = 'コードをコピーしました';
         } catch {
           button.textContent = 'コピーできません';
+          if (status) status.textContent = 'コピーできませんでした';
         }
         clearTimeout(timer);
         timer = setTimeout(() => {
           delete button.dataset.copied;
           button.textContent = 'コピー';
+        }, COPIED_MS);
+        clearTimeout(statusTimer);
+        statusTimer = setTimeout(() => {
+          if (status) status.textContent = '';
         }, COPIED_MS);
       });
       meta.append(button);
