@@ -1,21 +1,21 @@
-import { getCollection } from 'astro:content';
 import { OGImageRoute } from 'astro-og-canvas';
+import { profile } from '../../data/profile';
 
-// 記事ごとに OGP 画像をビルド時生成する。
-// パス: /og/blog/<slug>.png
-const posts = await getCollection('blog', ({ data }) => !data.draft);
-
-// OGImageRoute には { path: page } の形で渡す
-const pages = Object.fromEntries(posts.map((post) => [post.id, post.data]));
+// トップ専用の OG 画像。ビルド時に静的生成される。パス: /og/site.png
+const pages = {
+  site: {
+    title: `${profile.fullNameJa} / ${profile.fullName}`,
+    description: `${profile.title} — ${profile.domain}`,
+  },
+};
 
 export const { getStaticPaths, GET } = await OGImageRoute({
   pages,
-  // pages のキー(= post.id)に .png を付けて slug にする → /og/blog/<id>.png
   getSlug: (path) => `${path}.png`,
   getImageOptions: (_path, page) => ({
     title: page.title,
     description: page.description,
-    // サイトの図面トークン: 紙 #f5f7f8 / インク #1f2e3a。左端の帯だけ朱 #c43a1e(現在地の朱書きの延長)
+    // サイトの図面トークン: 紙 / インク / 朱の帯(現在地の朱書きの延長として、帯にのみ使う)
     bgGradient: [
       [245, 247, 248],
       [245, 247, 248],
@@ -26,7 +26,6 @@ export const { getStaticPaths, GET } = await OGImageRoute({
       title: { size: 64, weight: 'Bold', color: [31, 46, 58], families: ['Noto Sans CJK JP'] },
       description: { size: 32, color: [31, 46, 58], families: ['Noto Sans CJK JP'] },
     },
-    // 日本語グリフの描画に CJK フォント(otf)を読み込む
     fonts: [
       './src/assets/fonts/NotoSansCJKjp-Regular.otf',
       './src/assets/fonts/NotoSansCJKjp-Bold.otf',

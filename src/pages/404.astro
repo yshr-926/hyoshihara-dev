@@ -1,0 +1,32 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { profile } from '../data/profile';
+---
+
+<Layout title={`ページが見つかりません — ${profile.handle}`}>
+  <div class="max-w-prose">
+    <p aria-hidden="true" class="label-mono text-ink-muted">404</p>
+    <h1 class="mt-2 text-2xl font-semibold text-ink">ページが見つかりません</h1>
+    <p class="mt-4 text-ink-muted">
+      このサイトは{profile.fullNameJa}({profile.title})のプロフィールと記事を掲載しています。
+    </p>
+    <ul class="-mx-2 mt-6 flex flex-wrap gap-x-1 text-sm">
+      <li>
+        <a
+          href="/"
+          class="inline-flex min-h-11 items-center rounded-sm px-2 text-cobalt underline decoration-cobalt/40 underline-offset-4 transition-colors duration-200 ease-out-strong hover:text-ink hover:decoration-current active:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
+        >
+          プロフィール
+        </a>
+      </li>
+      <li>
+        <a
+          href="/blog"
+          class="inline-flex min-h-11 items-center rounded-sm px-2 text-cobalt underline decoration-cobalt/40 underline-offset-4 transition-colors duration-200 ease-out-strong hover:text-ink hover:decoration-current active:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
+        >
+          記事一覧
+        </a>
+      </li>
+    </ul>
+  </div>
+</Layout>
