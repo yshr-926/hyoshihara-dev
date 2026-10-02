@@ -1,57 +1,93 @@
 ---
 import { getCollection } from 'astro:content';
 import Layout from '../layouts/Layout.astro';
-import { career, contacts, education, fields, profile } from '../data/profile';
+import { career, contacts, education, fieldGroups, languages, profile } from '../data/profile';
 
 // 最新記事(公開分)を新しい順に 3 件。下書き(draft)は常に除外する。0 件なら「記事」セクション自体を出さない
 const posts = (await getCollection('blog', ({ data }) => !data.draft))
   .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
   .slice(0, 3);
 
-// PC の 2 カラムでは英名を姓・名の 2 行に組む(左カラム 16rem に 1 行では収まらないため)。
-// 1 行に収まる幅では従来どおり語中で折らず 1 行で出す
-const [firstName, ...restName] = profile.fullName.split(' ');
-const lastName = restName.join(' ');
+// 「まず読んでほしい記事」枠: featured な公開記事を新しい順に最大 2 本。0 件ならセクションごと出さない
+const featuredPosts = (
+  await getCollection('blog', ({ data }) => !data.draft && data.featured === true)
+)
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
+  .slice(0, 2);
+
+// 主連絡先(1 件だけ true)。氏名ブロックの案内行と、連絡先リストの先頭に使う
+const primaryContact = contacts.find((contact) => contact.primary);
+const orderedContacts = primaryContact
+  ? [primaryContact, ...contacts.filter((contact) => contact !== primaryContact)]
+  : contacts;
 
 const linkClass =
   'inline-flex min-h-11 items-center rounded-sm underline decoration-cobalt/40 underline-offset-4 transition-colors duration-200 ease-out-strong hover:text-ink hover:decoration-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt';
+
+const structuredData = {
+  '@context': 'https://schema.org',
+  '@type': 'ProfilePage',
+  mainEntity: {
+    '@type': 'Person',
+    name: profile.fullName,
+    alternateName: profile.fullNameJa,
+    jobTitle: profile.title,
+    url: new URL('/', Astro.site ?? Astro.url).href,
+    sameAs: contacts.map((contact) => contact.href),
+  },
+};
 ---
 
 <Layout
-  title={`${profile.fullName} — ${profile.title}`}
-  description={`${profile.fullName}(${profile.title})。${profile.domain}`}
+  title={`${profile.fullNameJa} / ${profile.fullName} — AIエンジニア`}
+  description={`${profile.fullNameJa}(${profile.fullName})の個人サイト。${profile.title}として${profile.domain}に取り組んでいます。経歴と技術記事を掲載。`}
+  ogImage="/og/site.png"
+  ogImageAlt={`${profile.fullNameJa} / ${profile.fullName} — ${profile.title}`}
+  alternate={{ lang: 'en', href: '/en/' }}
+  structuredData={structuredData}
 >
   {
-    /* レイアウト: 〜md は 1 カラム。lg からは 2 カラム(左: 氏名・肩書き・連絡先を sticky / 右: 経歴・専門領域・記事)。
+    /* レイアウト: 〜md は 1 カラム。lg からは 2 カラム(左: 氏名・肩書き・連絡先を sticky / 右: 専門領域・代表記事・経歴・記事)。
       枠はヘッダー・フッターと同じ max-w-site(60rem)。左 16rem + 間隔 3rem + 右 約 39rem(和文 39 字前後)。
       左カラムは sticky で、スクロールしても「何者か」が視界に残る。top は記事ページの目次と同じ 6rem */
   }
   <div class="mt-2 sm:mt-8 lg:grid lg:grid-cols-[16rem_minmax(0,1fr)] lg:items-start lg:gap-x-12">
-    <!-- 氏名 → 肩書き → 専門領域 → 連絡先。図・キャッチコピー・自己紹介文・数字は置かない -->
-    <section aria-labelledby="name-heading" class="lg:sticky lg:top-24">
+    <!-- 氏名 → 肩書き → 専門領域 → 自己紹介 → 連絡先。図・キャッチコピー・数字は置かない -->
+    <section id="profile" aria-labelledby="name-heading" class="lg:sticky lg:top-24">
       {
-        /* 氏名は最初の 10 秒で読まれる要素なので、ページ内で一番大きく・字間は詰める(大きい文字ほど負のトラッキング)。
-        英名は語中で折らない。1 カラムでは 1 行、lg の左カラムでは姓・名の 2 行に組む。
-        和名は 1 カラムでは英名の脇、lg では英名の下に小さく添える(ハンドルはヘッダーのワードマークだけに出す) */
+        /* 氏名は最初の 10 秒で読まれる要素なので、和名を主役として一番大きく出す(字間は詰める)。
+        英名は読みの補助として直下に小さく添え、姓名の間で折り返せるようにする(横スクロールを防ぐため
+        whitespace-nowrap は使わない)。2 行になったときは行間を詰めて塊として見えるようにする */
       }
       <h1 id="name-heading" class="text-4xl font-bold leading-none tracking-[-0.02em] sm:text-5xl">
-        <span lang="en" class="whitespace-nowrap">
-          {firstName}{' '}<span class="lg:block">{lastName}</span>
-        </span>
-        <span
-          class="mt-2 block text-lg font-normal tracking-normal text-ink-muted sm:ml-3 sm:inline lg:mt-3 lg:ml-0 lg:block"
-        >
-          {profile.fullNameJa}
-        </span>
+        {profile.fullNameJa}
       </h1>
+      <p lang="en" class="mt-2 text-lg font-normal leading-tight tracking-normal text-ink-muted">
+        {profile.fullName}
+      </p>
       {/* 肩書きと専門領域。記号(— や ×)は使わず、2 行の日本語で */}
       <p class="mt-5 text-lg font-medium leading-snug">{profile.title}</p>
       <p class="mt-1 text-base leading-snug text-ink-muted">{profile.domain}</p>
+      {/* 事実ベースの自己紹介 1〜2 文。宣伝表現・数字・案件名は入れない */}
+      <p class="mt-4 text-sm leading-list text-ink-muted">{profile.intro}</p>
+
+      {
+        /* 主連絡先への案内。メールは公開しないため、LinkedIn を仕事の連絡窓口として明示する */
+        primaryContact && (
+          <p class="mt-6 text-sm leading-list">
+            仕事のご連絡は
+            <a href={primaryContact.href} rel="me noopener" class:list={[linkClass, 'mx-1']}>
+              {primaryContact.label}
+            </a>
+            へ
+          </p>
+        )
+      }
 
       <!-- 連絡先。テキストリンク 1 行、タップ領域 44px 角(min-w-11 + 横 padding。横 padding は負マージンで相殺し文字位置を本文に揃える)。別タブでは開かない -->
-      <ul class="-mx-2 mt-6 flex flex-wrap gap-x-1 gap-y-0 text-sm" aria-label="連絡先">
+      <ul class="-mx-2 mt-3 flex flex-wrap gap-x-1 gap-y-0 text-sm" aria-label="連絡先">
         {
-          contacts.map((contact) => (
+          orderedContacts.map((contact) => (
             <li>
               <a
                 href={contact.href}
@@ -59,7 +95,9 @@ const linkClass =
                 class:list={[linkClass, 'min-w-11 justify-center px-2 text-ink']}
               >
                 {contact.label}
-                <span class="sr-only">({contact.handle})</span>
+                <span class="sr-only">
+                  ({contact.handle} ・ {contact.role})
+                </span>
               </a>
             </li>
           ))
@@ -69,18 +107,85 @@ const linkClass =
 
     {/* 右カラム。lg では左カラムの上端と揃えるので先頭セクションの上余白を消す */}
     <div>
+      <!-- 専門領域: 2 群に分けて表示。主な使用言語は群とは分けて小さく添える -->
+      <section id="fields" aria-labelledby="fields-heading" class="mt-14 sm:mt-20 lg:mt-0">
+        <div class="relative mb-5 border-b border-line pb-2">
+          <p class="label-mono" aria-hidden="true">FIELDS</p>
+          <h2 id="fields-heading" class="mt-0.5 text-lg font-semibold tracking-tight">専門領域</h2>
+          <span aria-hidden="true" class="absolute -bottom-px left-0 h-px w-8 bg-shu"></span>
+        </div>
+        <dl class="space-y-4">
+          {
+            fieldGroups.map((group) => (
+              <div>
+                <dt class="text-sm font-medium">{group.label}</dt>
+                <dd class="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm leading-list text-ink-muted">
+                  {group.items.map((item) => (
+                    <span>{item}</span>
+                  ))}
+                </dd>
+              </div>
+            ))
+          }
+        </dl>
+        <p class="mt-4 text-sm leading-list text-ink-muted">{profile.domainNote}</p>
+        {
+          languages.length > 0 && (
+            <p class="mt-4 text-xs leading-list text-ink-muted">
+              主な使用言語 <span class="ml-1">{languages.join(' / ')}</span>
+            </p>
+          )
+        }
+      </section>
+
+      {
+        /* 代表記事: featured が 1 本以上あるときだけ出す */
+        featuredPosts.length > 0 && (
+          <section id="featured" aria-labelledby="featured-heading" class="mt-12 sm:mt-16">
+            <div class="relative mb-5 border-b border-line pb-2">
+              <p class="label-mono" aria-hidden="true">
+                FEATURED
+              </p>
+              <h2 id="featured-heading" class="mt-0.5 text-lg font-semibold tracking-tight">
+                まず読んでほしい記事
+              </h2>
+              <span aria-hidden="true" class="absolute -bottom-px left-0 h-px w-8 bg-shu" />
+            </div>
+            <ul class="space-y-4">
+              {featuredPosts.map((post) => (
+                <li>
+                  <a
+                    href={`/blog/${post.id}`}
+                    class="group -mx-2 block min-h-11 rounded-sm px-2 py-2 transition-colors duration-200 ease-out-strong hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
+                  >
+                    <span class="block font-medium underline decoration-transparent underline-offset-4 transition-[text-decoration-color] duration-200 ease-out-strong group-hover:decoration-cobalt/40">
+                      {post.data.title}
+                    </span>
+                    {post.data.featuredNote && (
+                      <span class="mt-1 block text-sm leading-list text-ink-muted">
+                        {post.data.featuredNote}
+                      </span>
+                    )}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )
+      }
+
       <!-- 経歴: 会社名・職種・期間と学歴だけ。案件・成果・数字は載せない -->
-      <section aria-labelledby="career-heading" class="mt-14 sm:mt-20 lg:mt-0">
+      <section id="career" aria-labelledby="career-heading" class="mt-12 sm:mt-16">
         <div class="relative mb-5 border-b border-line pb-2">
           <p class="label-mono" aria-hidden="true">CAREER</p>
           <h2 id="career-heading" class="mt-0.5 text-lg font-semibold tracking-tight">経歴</h2>
           <span aria-hidden="true" class="absolute -bottom-px left-0 h-px w-8 bg-shu"></span>
         </div>
-        <ul class="space-y-2 text-sm leading-list">
+        <ul class="space-y-3 text-[15px] leading-list">
           {
             career.map((job) => (
-              <li class="grid grid-cols-[6.75rem_minmax(0,1fr)] gap-x-4 sm:grid-cols-[9rem_minmax(0,1fr)]">
-                {/* 期間は等幅。「現在」だけ朱(現在地) */}
+              <li class="grid grid-cols-1 gap-x-4 gap-y-0.5 sm:grid-cols-[9rem_minmax(0,1fr)] sm:gap-y-0">
+                {/* 期間は等幅。「現在」だけ朱(現在地)。〜sm では期間を上段、内容を下段に組む */}
                 <span class="font-mono text-xs leading-list text-ink-muted">
                   <time datetime={job.from.iso}>{job.from.text}</time>
                   <span aria-hidden="true"> — </span>
@@ -102,9 +207,15 @@ const linkClass =
               </li>
             ))
           }
+        </ul>
+
+        <!-- 学歴: 職歴との間に小見出しを置いて区切る -->
+        <p class="label-mono mt-6 mb-3 text-ink-muted" aria-hidden="true">EDUCATION</p>
+        <h3 class="sr-only">学歴</h3>
+        <ul class="space-y-3 text-[15px] leading-list">
           {
             education.map((entry) => (
-              <li class="grid grid-cols-[6.75rem_minmax(0,1fr)] gap-x-4 sm:grid-cols-[9rem_minmax(0,1fr)]">
+              <li class="grid grid-cols-1 gap-x-4 gap-y-0.5 sm:grid-cols-[9rem_minmax(0,1fr)] sm:gap-y-0">
                 <time datetime={entry.year} class="font-mono text-xs leading-list text-ink-muted">
                   {entry.year}
                 </time>
@@ -115,24 +226,14 @@ const linkClass =
             ))
           }
         </ul>
-      </section>
 
-      <!-- 専門領域: 少数の言葉だけ(スキル一覧にしない) -->
-      <section aria-labelledby="fields-heading" class="mt-12 sm:mt-16">
-        <div class="relative mb-5 border-b border-line pb-2">
-          <p class="label-mono" aria-hidden="true">FIELDS</p>
-          <h2 id="fields-heading" class="mt-0.5 text-lg font-semibold tracking-tight">専門領域</h2>
-          <span aria-hidden="true" class="absolute -bottom-px left-0 h-px w-8 bg-shu"></span>
-        </div>
-        <ul class="flex flex-wrap gap-x-4 gap-y-1 text-sm leading-list" aria-label="専門領域">
-          {fields.map((field) => <li>{field}</li>)}
-        </ul>
+        <p class="mt-6 font-mono text-xs text-ink-muted">最終更新 {profile.updatedAt}</p>
       </section>
 
       {
         /* 記事: 公開記事があるときだけ。0 件なら DOM ごと出さない(空のセクションを見せない) */
         posts.length > 0 && (
-          <section aria-labelledby="posts-heading" class="mt-12 sm:mt-16">
+          <section id="posts" aria-labelledby="posts-heading" class="mt-12 sm:mt-16">
             <div class="relative mb-4 flex items-end justify-between border-b border-line pb-2">
               <div>
                 <p class="label-mono" aria-hidden="true">
@@ -154,16 +255,16 @@ const linkClass =
                     href={`/blog/${post.id}`}
                     class="group -mx-2 flex min-h-11 flex-wrap items-baseline gap-x-4 gap-y-1 rounded-sm px-2 py-2 text-sm leading-list transition-colors duration-200 ease-out-strong hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
                   >
+                    {/* 下線はオン/オフではなく色のフェードで出す(透明→コバルト) */}
+                    <span class="font-medium underline decoration-transparent underline-offset-4 transition-[text-decoration-color] duration-200 ease-out-strong group-hover:decoration-cobalt/40">
+                      {post.data.title}
+                    </span>
                     <time
                       datetime={post.data.date.toISOString().slice(0, 10)}
                       class="shrink-0 font-mono text-xs text-ink-muted"
                     >
                       {post.data.date.toISOString().slice(0, 10)}
                     </time>
-                    {/* 下線はオン/オフではなく色のフェードで出す(透明→コバルト) */}
-                    <span class="font-medium underline decoration-transparent underline-offset-4 transition-[text-decoration-color] duration-200 ease-out-strong group-hover:decoration-cobalt/40">
-                      {post.data.title}
-                    </span>
                   </a>
                 </li>
               ))}
