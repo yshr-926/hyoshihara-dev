@@ -49,7 +49,7 @@ const authorUrl = new URL('/', Astro.site ?? Astro.url).href;
 ---
 
 <Layout
-  title={`${post.data.title} — hyoshihara`}
+  title={`${post.data.title} — ${profile.siteName}`}
   description={post.data.description}
   ogImage={`/og/blog/${post.id}.png`}
   ogImageAlt={post.data.title}

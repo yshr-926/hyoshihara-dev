@@ -2,6 +2,7 @@
 import { getCollection } from 'astro:content';
 import Layout from '../../layouts/Layout.astro';
 import PostCard from '../../components/blog/PostCard.astro';
+import { profile } from '../../data/profile';
 
 // 下書き(draft: true)は常に除外し、日付の降順で並べる
 const posts = (await getCollection('blog', ({ data }) => !data.draft)).sort(
@@ -10,7 +11,7 @@ const posts = (await getCollection('blog', ({ data }) => !data.draft)).sort(
 ---
 
 <Layout
-  title="記事 — hyoshihara"
+  title={`記事 — ${profile.siteName}`}
   description="探索・最適化アルゴリズムと RAG・LLM 評価に関する技術記事"
 >
   <header class="mt-4 sm:mt-8">

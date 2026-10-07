@@ -1,0 +1,21 @@
+// Cloudflare Workers(静的アセット配信)の設定。デプロイは .github/workflows/deploy.yml の `wrangler deploy`。
+// Pages は Workers に統合されたため(wrangler 4.14x 以降は `wrangler pages` が Workers へ委譲される)、
+// 旧 Pages ではなく Workers の静的アセットで配信する。Worker のコードは持たず、dist/ をそのまま配る。
+{
+  "$schema": "https://raw.githubusercontent.com/cloudflare/workers-sdk/main/packages/wrangler/config-schema.json",
+  "name": "hyoshihara-dev",
+  "compatibility_date": "2026-10-06",
+  "assets": {
+    "directory": "./dist",
+    // /blog と /blog/ を同じにする(astro.config の trailingSlash: 'ignore' と整合)
+    "html_handling": "auto-trailing-slash",
+    // 見つからないパスには Astro が出す dist/404.html を 404 で返す
+    "not_found_handling": "404-page",
+  },
+  // 本番 URL。custom_domain: true で、デプロイ時に DNS レコードと証明書が自動で用意される
+  // (ゾーン hirotoyoshihara.dev が同じアカウントにあることが前提)
+  "routes": [{ "pattern": "hirotoyoshihara.dev", "custom_domain": true }],
+  // *.workers.dev の URL は出さない(正規 URL を 1 つに保つ)
+  "workers_dev": false,
+  "preview_urls": false,
+}

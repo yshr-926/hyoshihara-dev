@@ -2,6 +2,7 @@
 import { getCollection } from 'astro:content';
 import Layout from '../../../layouts/Layout.astro';
 import PostCard from '../../../components/blog/PostCard.astro';
+import { profile } from '../../../data/profile';
 
 export async function getStaticPaths() {
   // 下書き(draft: true)は常に除外する
@@ -22,7 +23,10 @@ const { tag } = Astro.params;
 const { posts } = Astro.props;
 ---
 
-<Layout title={`#${tag} の記事 — hyoshihara`} description={`「${tag}」タグが付いた記事の一覧`}>
+<Layout
+  title={`#${tag} の記事 — ${profile.siteName}`}
+  description={`「${tag}」タグが付いた記事の一覧`}
+>
   <header class="mt-4 sm:mt-8">
     <p class="label-mono" aria-hidden="true">TAG</p>
     <h1 class="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">#{tag} の記事</h1>

@@ -3,14 +3,14 @@ import type { APIContext } from 'astro';
 import { getCollection } from 'astro:content';
 import { profile } from '../data/profile';
 
-// 公開記事のみ、日付降順で配信する。site は独自ドメイン確定までの仮値(TODO: astro.config.mjs 側で差し替え)
+// 公開記事のみ、日付降順で配信する。絶対 URL は astro.config.mjs の site から作られる
 export async function GET(context: APIContext) {
   const posts = (await getCollection('blog', ({ data }) => !data.draft)).sort(
     (a, b) => b.data.date.valueOf() - a.data.date.valueOf(),
   );
 
   return rss({
-    title: 'hyoshihara.dev',
+    title: profile.siteName,
     description: `${profile.title} — ${profile.domain}`,
     site: context.site!,
     items: posts.map((post) => ({

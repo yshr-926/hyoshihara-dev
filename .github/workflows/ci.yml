@@ -1,0 +1,62 @@
+# CI: push(main)と PR ごとに、整形・静的検査・ビルド・依存の脆弱性検査を回す。
+# ローカルの検証手段(AGENTS.md「開発コマンド」)と同じものを、同じ Bun のバージョンで走らせる。
+# サードパーティ action はタグではなくコミット SHA で固定する(タグは後から差し替えられるため)。
+# 末尾のコメントが対応するタグで、更新は .github/dependabot.yml の github-actions で追う。
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# 既定を最小権限にする。必要なジョブだけが個別に権限を足す
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: format / lint / build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          # package.json の packageManager と揃える
+          bun-version: 1.3.8
+
+      - name: 依存をインストール
+        # ロックファイルどおりに入れる。CI で解決が動くと、手元と違うバージョンで通ってしまう
+        run: bun install --frozen-lockfile
+
+      - name: 整形チェック(Prettier)
+        run: bun run format:check
+
+      - name: 静的検査(ESLint)
+        run: bun run lint
+
+      - name: ビルド(型・frontmatter スキーマの検証を兼ねる)
+        run: bun run build
+
+  audit:
+    name: 依存の脆弱性検査
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.3.8
+
+      - run: bun install --frozen-lockfile
+
+      # ubuntu-latest には python3 が最初から入っている。消えていたら黙って通さないよう存在だけ確認する
+      - name: Python の確認
+        run: command -v python3 >/dev/null && python3 --version
+
+      # bun audit を直に置くと、上流が固定ピンしている間接依存の指摘で常に赤になる。
+      # 赤が常態化すると本物の脆弱性に気づけなくなるので、結果を既知リストと突き合わせるラッパーを通す。
+      # 既知に無い指摘(新しい脆弱性)と、既知なのに報告されなくなった指摘(リストの放置)の両方で落ちる
+      - name: 依存の脆弱性を検査
+        run: python3 scripts/audit_deps.py

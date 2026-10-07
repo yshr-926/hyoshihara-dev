@@ -1,0 +1,23 @@
+# 依存の更新追跡。ワークフローの action はコミット SHA で固定しているので(タグは動かせるため)、
+# 更新は Dependabot の PR で追う(SHA と末尾のタグコメントを一緒に書き換えてくれる)。
+# npm(Bun のロックファイルも npm エコシステムとして扱われる)はパッチ・マイナーをまとめ、
+# 個人サイトで PR が溢れないよう同時に開く数を絞る。
+
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

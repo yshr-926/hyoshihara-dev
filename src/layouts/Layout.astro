@@ -38,7 +38,6 @@ const {
 
 // Astro.site が設定されていれば絶対URLに、なければ相対のまま
 const ogImageUrl = ogImage ? new URL(ogImage, Astro.site ?? Astro.url).href : undefined;
-// TODO: astro.config.mjs の site が独自ドメイン確定までの仮値のため、canonical / og:url も暫定
 const canonicalUrl = new URL(Astro.url.pathname, Astro.site ?? Astro.url).href;
 
 // UI 文言。lang で切り替える辞書(ナビ・スキップリンク・テーマ操作)。
@@ -113,7 +112,7 @@ const contentSwap = {
     <meta name="description" content={description} />
     <link rel="canonical" href={canonicalUrl} />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="alternate" type="application/rss+xml" title="hyoshihara.dev" href="/rss.xml" />
+    <link rel="alternate" type="application/rss+xml" title={profile.siteName} href="/rss.xml" />
     {
       /* hreflang は自己参照 + 相手言語 + x-default(日本語)の 3 本。alternate が無いページには出さない */
       alternate && (
@@ -190,8 +189,9 @@ const contentSwap = {
       {
         /* 高さは 52px 固定(min-h-13)。中の操作要素は 44px 角の操作領域を持つ(モバイルの指先基準)。
         flex-wrap は極端な文字拡大(200%等)でワードマークとナビが 1 行に収まらないときの折り返し用。
-        390px 幅で 1 行に収めるため、〜sm ではワードマークを 12px、ナビの間隔を 0(各項目の px-2 が
-        間隔を兼ねる)、言語切替を短い表記(EN / JA)にする(折り返すと sticky ヘッダーが 88px になり重いため) */
+        390px 幅で 1 行に収めるため、〜sm ではナビの「プロフィール」項目を隠し(ワードマークがトップへの
+        リンクを兼ねる)、ナビの間隔を 0(各項目の px-2 が間隔を兼ねる)、言語切替を短い表記(EN / JA)にする
+        (折り返すと sticky ヘッダーが 88px になり重いため)。ワードマークはドメイン名なので省略しない */
       }
       <nav
         aria-label={lang === 'en' ? 'Main' : 'メイン'}
@@ -199,14 +199,14 @@ const contentSwap = {
       >
         <a
           href={homeHref}
-          class="group -mx-2 inline-flex min-h-11 items-center gap-2 rounded-sm px-2 font-mono text-xs font-medium tracking-tight sm:text-sm transition-colors duration-200 ease-out-strong hover:text-cobalt active:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
+          class="group -mx-2 inline-flex min-h-11 items-center gap-2 rounded-sm px-2 font-mono text-sm font-medium tracking-tight transition-colors duration-200 ease-out-strong hover:text-cobalt active:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
         >
           {/* 朱の角印。ワードマークの印 */}
           <span
             aria-hidden="true"
             class="size-2 bg-shu transition-transform duration-200 ease-out-strong group-hover:rotate-45"
           ></span>
-          hyoshihara.dev
+          {profile.siteName}
         </a>
         <ul class="flex flex-wrap items-center gap-0 text-sm sm:gap-1">
           {
@@ -216,7 +216,7 @@ const contentSwap = {
           }
           {
             navItems.map(({ href, label }) => (
-              <li>
+              <li class:list={[href === homeHref && 'hidden sm:block']}>
                 <a
                   href={href}
                   data-nav

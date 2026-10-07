@@ -25,8 +25,8 @@ const codeBlockTitle = {
 
 // https://astro.build/config
 export default defineConfig({
-  // TODO: 独自ドメイン確定後に差し替える(sitemap / OGP / RSS の絶対URL生成に使用)
-  site: 'https://example.com',
+  // 公開 URL(sitemap / OGP / RSS / canonical / hreflang の絶対 URL 生成に使用)。apex で公開し、www は apex へ寄せる
+  site: 'https://hirotoyoshihara.dev',
 
   // /resume は廃止し、経歴はトップにまとめた。旧 URL からの流入はトップへ送る
   redirects: { '/resume': '/' },

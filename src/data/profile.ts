@@ -2,8 +2,8 @@
 // 実績・数字・案件説明は掲載しない方針のため、ここには氏名・肩書き・事実ベースの自己紹介・専門領域・連絡先・経歴・学歴・専門語だけを置く。
 
 export const profile = {
-  /** サイト表記の名前(ヘッダー・OGP と揃える) */
-  handle: 'hyoshihara',
+  /** サイト名 = 公開ドメイン(ヘッダーのワードマーク・RSS・ページタイトルの接尾に使う)。astro.config.mjs の site と揃える */
+  siteName: 'hirotoyoshihara.dev',
   /** フルネーム(英・和)。トップで併記して同一人物だと分かるようにする */
   fullName: 'Hiroto Yoshihara',
   fullNameJa: '吉原 啓人',
