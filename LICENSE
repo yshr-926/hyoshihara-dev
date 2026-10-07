@@ -20,15 +20,3 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
----
-
-This license applies to the source code of this repository only. It does not
-cover the following:
-
-- Blog articles in src/content/blog/ are licensed under the Creative Commons
-  Attribution 4.0 International License (CC BY 4.0).
-  https://creativecommons.org/licenses/by/4.0/
-- Profile and career information (src/data/ and the text of the profile pages)
-  is Copyright (c) 2026 Hiroto Yoshihara. All rights reserved.
-- Fonts in src/assets/fonts/ are licensed under the SIL Open Font License 1.1.
-  See src/assets/fonts/LICENSE-NotoSansCJK.txt.
