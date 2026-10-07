@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>07 縦組み — hirotoyoshihara.dev</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@400;600;800&family=Zen+Kaku+Gothic+New:wght@400;500&display=swap"
+    />
+    <style>
+      /* レイアウト: 本文を縦組み(vertical-rl)で右から左へ読む 1 枚の紙面にする。横長の画面ではホイールで横へ送る。
+         数字は漢数字、短い欧文略語は縦中横・正立。スマホ幅では横組みに切り替える(縦組みのまま縦スクロールは読みにくいため) */
+      :root {
+        --paper: #eef0ee;
+        --ink: #1c1e20;
+        --muted: #62676c;
+        --ai: #234a78; /* 藍 */
+        --shu: #c0392b; /* 朱(落款のみ) */
+        --rule: rgb(28 30 32 / 0.16);
+        --font-mincho: 'Shippori Mincho B1', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+        --font-gothic: 'Zen Kaku Gothic New', 'Hiragino Sans', sans-serif;
+        color-scheme: light;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) {
+          --paper: #141617; --ink: #e5e3dc; --muted: #9a9c9b; --ai: #8db2e0; --shu: #e0604f; --rule: rgb(229 227 220 / 0.16); color-scheme: dark;
+        }
+      }
+      :root[data-theme='dark'] {
+        --paper: #141617; --ink: #e5e3dc; --muted: #9a9c9b; --ai: #8db2e0; --shu: #e0604f; --rule: rgb(229 227 220 / 0.16); color-scheme: dark;
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font-mincho); display: flex; flex-direction: column; }
+      a { color: var(--ai); text-decoration: none; border-bottom: 1px solid currentColor; }
+      a:hover { color: var(--shu); }
+      a:focus-visible { outline: 2px solid var(--ai); outline-offset: 2px; }
+      .bar { display: flex; justify-content: space-between; gap: 16px; padding: 14px 16px; font-family: var(--font-gothic); font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--rule); }
+      .bar nav { display: flex; gap: 16px; flex-wrap: wrap; }
+      .bar nav a { color: var(--muted); border: 0; }
+      .bar nav a:hover { color: var(--ink); }
+      .hint { font-family: var(--font-gothic); font-size: 11px; color: var(--muted); text-align: center; padding: 10px 16px; }
+
+      main {
+        flex: 1;
+        min-height: 0;
+        writing-mode: vertical-rl;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding: 40px 48px;
+        display: flex;
+        flex-direction: column; /* 縦組みでは column = 右から左へ段を送る方向 */
+        gap: 64px;
+        line-height: 2;
+        letter-spacing: 0.06em;
+        font-size: 17px;
+        scrollbar-width: thin;
+      }
+      main > section { flex: none; max-block-size: none; }
+      .up { text-orientation: upright; letter-spacing: 0; }
+      section { display: flex; flex-direction: column; gap: 22px; }
+      p, ul { margin: 0; }
+      ul { list-style: none; padding: 0; }
+      h1 { font-weight: 800; font-size: clamp(56px, 9vh, 96px); letter-spacing: 0.18em; margin: 0; line-height: 1.2; }
+      .yomi { font-family: var(--font-gothic); font-size: 12px; color: var(--muted); letter-spacing: 0.24em; }
+      .seal { align-self: flex-start; border: 2px solid var(--shu); color: var(--shu); font-size: 15px; line-height: 1; letter-spacing: 0.1em; font-weight: 800; padding: 6px 5px; border-radius: 3px; margin-block-start: 1em; inline-size: 3.2em; text-align: center; }
+      .lead { font-size: 21px; font-weight: 600; letter-spacing: 0.1em; }
+      .lead .sub { display: block; color: var(--muted); font-weight: 400; font-size: 17px; margin-block-start: 4px; }
+      .intro, .proj .desc { max-inline-size: 26em; }
+      h2 { font-size: 22px; font-weight: 800; margin: 0; letter-spacing: 0.3em; }
+      h3 { font-size: 17px; font-weight: 600; margin: 0; letter-spacing: 0.12em; }
+      .group, .proj, .entry { display: flex; flex-direction: column; gap: 4px; }
+      .items { color: var(--muted); }
+      .items li::before { content: '・'; }
+      .proj .desc { color: var(--muted); font-size: 16px; }
+      .proj .stack { font-family: var(--font-gothic); font-size: 12px; color: var(--muted); }
+      .when { font-family: var(--font-gothic); font-size: 13px; color: var(--muted); letter-spacing: 0.12em; }
+      .now { color: var(--shu); }
+      .note { font-family: var(--font-gothic); font-size: 12px; color: var(--muted); }
+      .contacts { display: flex; flex-direction: column; gap: 18px; }
+      .contacts small { font-family: var(--font-gothic); color: var(--muted); font-size: 12px; margin-block-start: 0.8em; display: inline-block; }
+      .sep { inline-size: auto; block-size: 1px; align-self: stretch; background: var(--rule); flex: none; }
+
+      @media (max-width: 759px) {
+        html, body { height: auto; }
+        main { writing-mode: horizontal-tb; overflow: visible; padding: 32px 16px 80px; flex-direction: column; gap: 48px; line-height: 1.9; letter-spacing: 0.04em; font-size: 16px; }
+        .up { text-orientation: mixed; }
+        section { gap: 14px; }
+        h1 { font-size: 52px; letter-spacing: 0.1em; }
+        h2 { border-bottom: 1px solid var(--rule); padding-bottom: 6px; }
+        .group, .proj, .entry { gap: 2px; }
+        .contacts { flex-direction: row; flex-wrap: wrap; gap: 4px 24px; }
+        .contacts small { margin: 0 0 0 0.6em; }
+        .sep, .hint { display: none; }
+        .seal { inline-size: auto; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="bar">
+      <span id="site"></span>
+      <nav aria-label="セクション"><a href="#s-fields">専門</a><a href="#s-projects">個人開発</a><a href="#s-career">経歴</a><a href="#s-posts">記事</a><a href="#s-contact">連絡先</a></nav>
+    </header>
+    <main id="tate" tabindex="0" aria-label="本文(縦組み)"></main>
+    <p class="hint" aria-hidden="true">← ホイールまたは横スクロールで左へ読み進めます</p>
+
+    <script src="profile-data.js"></script>
+    <script>
+      const P = window.PROFILE, esc = window.esc;
+      const contacts = [...P.contacts].sort((a, b) => (b.primary ? 1 : 0) - (a.primary ? 1 : 0));
+      const kan = (s) => String(s).replace(/[0-9]/g, (d) => '〇一二三四五六七八九'[d]);
+      const ym = (s) => { const [y, m] = s.split('.'); return `${kan(y)}年${m ? kan(String(+m)) + '月' : ''}`; };
+      // 縦組みで読みやすいよう、2〜3 文字の大文字略語(AI・LLM・RAG など)は正立させる
+      const tate = (s) => esc(s).replace(/\b([A-Z]{2,3})\b/g, '<span class="up">$1</span>');
+      document.getElementById('site').textContent = P.siteName;
+      document.getElementById('tate').innerHTML = `
+        <section aria-labelledby="name">
+          <h1 id="name">${esc(P.fullNameJa)}</h1>
+          <p class="yomi" lang="en">${esc(P.fullName)}</p>
+          <p class="lead">${tate(P.title)}<span class="sub">${tate(P.domain)}</span></p>
+          <p class="intro">${tate(P.intro)}</p>
+          <span class="seal" aria-hidden="true">${esc(P.fullNameJa.split(' ')[0])}</span>
+        </section>
+        <div class="sep" aria-hidden="true"></div>
+        <section id="s-fields" aria-labelledby="h-fields">
+          <h2 id="h-fields">専門領域</h2>
+          ${P.fieldGroups.map((g) => `<div class="group"><h3>${tate(g.label)}</h3><ul class="items">${g.items.map((i) => `<li>${tate(i)}</li>`).join('')}</ul></div>`).join('')}
+          <p class="note">主な使用言語 ${P.languages.join('、')}</p>
+        </section>
+        <div class="sep" aria-hidden="true"></div>
+        <section id="s-projects" aria-labelledby="h-projects">
+          <h2 id="h-projects">個人開発</h2>
+          ${P.projects.map((p) => `<div class="proj"><h3><a href="${p.href}">${esc(p.name)}</a></h3><p class="desc">${tate(p.description)}</p><p class="stack">${p.stack.map(esc).join('/')}${p.repo ? `  <a href="${p.repo}">ソース</a>` : ''}</p></div>`).join('')}
+        </section>
+        <div class="sep" aria-hidden="true"></div>
+        <section id="s-career" aria-labelledby="h-career">
+          <h2 id="h-career">経歴</h2>
+          ${P.career.map((c) => `<div class="entry"><p class="when">${ym(c.from)}〜<span class="now">${c.to}</span></p><p>${tate(c.company)}　${tate(c.role)}</p></div>`).join('')}
+          ${P.education.map((e) => `<div class="entry"><p class="when">${ym(e.year)}</p><p>${esc(e.school)}　${esc(e.status)}</p></div>`).join('')}
+          <p class="note">最終更新 ${kan(P.updatedAt.replace(/-/g, '.'))}</p>
+        </section>
+        <div class="sep" aria-hidden="true"></div>
+        <section id="s-posts" aria-labelledby="h-posts">
+          <h2 id="h-posts">記事</h2>
+          <p class="note">公開した記事はここに並びます。いまは〇件です。</p>
+        </section>
+        <div class="sep" aria-hidden="true"></div>
+        <section id="s-contact" aria-labelledby="h-contact">
+          <h2 id="h-contact">連絡先</h2>
+          <ul class="contacts">${contacts.map((c) => `<li><a href="${c.href}" rel="me noopener">${esc(c.label)}</a><small>${esc(c.role)}</small></li>`).join('')}</ul>
+        </section>`;
+
+      // 縦ホイールを横送りに変換する(縦組みの段は右から左へ進む)
+      const main = document.getElementById('tate');
+      main.addEventListener('wheel', (e) => {
+        if (getComputedStyle(main).writingMode !== 'vertical-rl') return;
+        if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { main.scrollLeft -= e.deltaY; e.preventDefault(); }
+      }, { passive: false });
+      document.querySelectorAll('.bar nav a').forEach((a) => a.addEventListener('click', (e) => {
+        const el = document.querySelector(a.getAttribute('href'));
+        if (!el || getComputedStyle(main).writingMode !== 'vertical-rl') return;
+        e.preventDefault();
+        el.scrollIntoView({ inline: 'start', block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      }));
+    </script>
+  </body>
+</html>

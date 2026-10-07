@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>02 損失曲面 — hirotoyoshihara.dev</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Syne:wght@500;700&family=Noto+Sans+JP:wght@400;500;700;900&family=DM+Mono:wght@400;500&display=swap"
+    />
+    <style>
+      /* レイアウト: 上部に 3D の損失曲面(Three.js)。玉がモメンタム SGD で谷へ転がり、着いたら別の初期値から再出発。
+         その下に暗い面の 2 カラム。ダーク一択の世界観(ライトは用意しない) */
+      :root {
+        --bg: #07090f;
+        --panel: #0e1220;
+        --ink: #e8ecf6;
+        --muted: #8a93ad;
+        --line: rgb(232 236 246 / 0.1);
+        --accent: #8ff0ff;
+        --heat: #ffb86b;
+        --font-display: 'Syne', 'Noto Sans JP', sans-serif;
+        --font-body: 'Noto Sans JP', 'Hiragino Sans', sans-serif;
+        --font-mono: 'DM Mono', ui-monospace, Menlo, monospace;
+        color-scheme: dark;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); line-height: 1.8; letter-spacing: 0.02em; }
+      a { color: var(--ink); text-decoration-color: rgb(143 240 255 / 0.4); text-underline-offset: 4px; }
+      a:hover { color: var(--accent); }
+      a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+      .hero { position: relative; height: clamp(440px, 78vh, 760px); overflow: hidden; border-bottom: 1px solid var(--line); }
+      #gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+      .hero::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, var(--bg) 0%, transparent 45%); pointer-events: none; }
+      .title { position: absolute; z-index: 2; left: 0; right: 0; bottom: 0; padding: 0 16px 28px; max-width: 72rem; margin: 0 auto; }
+      @media (min-width: 900px) { .title { padding: 0 40px 48px; } }
+      .eyebrow { font-family: var(--font-mono); font-size: 12px; color: var(--accent); letter-spacing: 0.12em; margin: 0 0 12px; }
+      h1 { margin: 0; font-weight: 900; font-size: clamp(48px, 10vw, 112px); line-height: 0.95; letter-spacing: -0.03em; }
+      .latin { font-family: var(--font-display); font-weight: 500; font-size: clamp(16px, 2.2vw, 24px); color: var(--muted); margin: 12px 0 0; letter-spacing: 0.02em; }
+      .readout { position: absolute; z-index: 2; top: 16px; right: 16px; font-family: var(--font-mono); font-size: 11px; color: var(--muted); text-align: right; line-height: 1.7; font-variant-numeric: tabular-nums; }
+      .readout b { color: var(--heat); font-weight: 500; }
+
+      .wrap { max-width: 72rem; margin: 0 auto; padding-inline: 16px; padding-block: 48px 96px; display: grid; gap: 56px; }
+      @media (min-width: 900px) {
+        .wrap { padding-inline: 40px; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); column-gap: 64px; }
+        .lede { grid-row: span 3; position: sticky; top: 32px; align-self: start; }
+      }
+      .role { font-size: 22px; font-weight: 700; margin: 0; line-height: 1.4; }
+      .domain { margin: 4px 0 0; color: var(--accent); }
+      .intro { color: var(--muted); font-size: 15px; margin: 20px 0 0; }
+      .contacts { list-style: none; padding: 0; margin: 28px 0 0; display: flex; flex-wrap: wrap; gap: 8px; }
+      .contacts a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border: 1px solid var(--line); border-radius: 999px; text-decoration: none; font-size: 14px; gap: 8px; }
+      .contacts a:hover { border-color: var(--accent); }
+      .contacts small { color: var(--muted); font-size: 11px; }
+      h2 { font-family: var(--font-display); font-weight: 700; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); margin: 0 0 20px; display: flex; gap: 12px; align-items: baseline; }
+      h2 span { font-family: var(--font-body); text-transform: none; letter-spacing: 0.04em; font-size: 18px; color: var(--ink); font-weight: 700; }
+      .fields { display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line); }
+      @media (min-width: 600px) { .fields { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+      .field { background: var(--bg); padding: 18px; }
+      .field h3 { margin: 0 0 10px; font-size: 14px; }
+      .field ul { list-style: none; margin: 0; padding: 0; font-size: 13px; color: var(--muted); line-height: 2; }
+      .lang { font-family: var(--font-mono); font-size: 12px; color: var(--muted); margin: 12px 0 0; }
+      .projects { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+      .project { background: var(--panel); border: 1px solid var(--line); padding: 20px; display: grid; gap: 6px; }
+      .project h3 { margin: 0; font-family: var(--font-display); font-size: 22px; font-weight: 700; letter-spacing: 0; }
+      .project p { margin: 0; font-size: 14px; color: var(--muted); }
+      .meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; font-family: var(--font-mono); font-size: 12px; color: var(--muted); margin-top: 6px; }
+      .meta .links { display: flex; gap: 16px; }
+      .rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+      .rows li { display: grid; grid-template-columns: 8.5rem minmax(0, 1fr); gap: 16px; font-size: 15px; }
+      .rows time { font-family: var(--font-mono); font-size: 12px; color: var(--muted); padding-top: 3px; }
+      .now { color: var(--heat); }
+      .gap { margin-top: 24px; }
+      .empty { color: var(--muted); font-size: 14px; margin: 0; }
+      footer { border-top: 1px solid var(--line); padding: 24px 16px; font-family: var(--font-mono); font-size: 11px; color: var(--muted); text-align: center; }
+      @media (max-width: 520px) { .rows li { grid-template-columns: 1fr; gap: 0; } }
+    </style>
+  </head>
+  <body>
+    <header class="hero">
+      <canvas id="gl" aria-hidden="true"></canvas>
+      <div class="readout" aria-hidden="true">
+        run <b id="r-run">1</b> · step <b id="r-step">0</b><br />
+        loss <b id="r-loss">—</b>
+      </div>
+      <div class="title">
+        <p class="eyebrow">θ ← θ − η∇L(θ)</p>
+        <h1 id="name"></h1>
+        <p class="latin" lang="en" id="latin"></p>
+      </div>
+    </header>
+    <main class="wrap" id="content"></main>
+    <footer id="foot"></footer>
+
+    <script src="profile-data.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+      const P = window.PROFILE, esc = window.esc;
+      document.getElementById('name').textContent = P.fullNameJa;
+      document.getElementById('latin').textContent = P.fullName;
+      const contacts = [...P.contacts].sort((a, b) => (b.primary ? 1 : 0) - (a.primary ? 1 : 0));
+      document.getElementById('content').innerHTML = `
+        <section class="lede" aria-label="プロフィール">
+          <p class="role">${esc(P.title)}</p>
+          <p class="domain">${esc(P.domain)}</p>
+          <p class="intro">${esc(P.intro)}</p>
+          <ul class="contacts" aria-label="連絡先">${contacts.map((c) => `<li><a href="${c.href}" rel="me noopener">${esc(c.label)}<small>${esc(c.role)}</small></a></li>`).join('')}</ul>
+        </section>
+        <section aria-labelledby="h-f">
+          <h2 id="h-f">Fields <span>専門領域</span></h2>
+          <div class="fields">${P.fieldGroups.map((g) => `<div class="field"><h3>${esc(g.label)}</h3><ul>${g.items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul></div>`).join('')}</div>
+          <p class="lang">lang: ${P.languages.join(', ')}</p>
+        </section>
+        <section aria-labelledby="h-p">
+          <h2 id="h-p">Projects <span>個人開発</span></h2>
+          <ul class="projects">${P.projects.map((p) => `
+            <li class="project">
+              <h3>${esc(p.name)}</h3>
+              <p>${esc(p.description)}</p>
+              <div class="meta"><span>${p.stack.map(esc).join(' / ')}</span><span class="links"><a href="${p.href}">サイト</a>${p.repo ? `<a href="${p.repo}">コード</a>` : ''}</span></div>
+            </li>`).join('')}</ul>
+        </section>
+        <section aria-labelledby="h-c">
+          <h2 id="h-c">Career <span>経歴</span></h2>
+          <ul class="rows">${P.career.map((c) => `<li><time>${c.from} — <span class="now">${c.to}</span></time><span>${esc(c.company)} / ${esc(c.role)}</span></li>`).join('')}</ul>
+          <ul class="rows gap">${P.education.map((e) => `<li><time>${e.year}</time><span>${esc(e.school)} ${esc(e.status)}</span></li>`).join('')}</ul>
+        </section>
+        <section aria-labelledby="h-w">
+          <h2 id="h-w">Writing <span>記事</span></h2>
+          <p class="empty">公開した記事はここに並びます(現在 0 件)。</p>
+        </section>`;
+      document.getElementById('foot').textContent = `${P.siteName} · 最終更新 ${P.updatedAt}`;
+
+      // ---- Three.js: 損失曲面と転がる玉 ----
+      const f = (x, y) =>
+        0.06 * (x * x + y * y) -
+        1.3 * Math.exp(-((x - 1.4) ** 2 + (y + 0.8) ** 2) / 0.9) -
+        0.9 * Math.exp(-((x + 1.5) ** 2 + (y - 1.1) ** 2) / 0.7) -
+        0.7 * Math.exp(-((x + 0.4) ** 2 + (y + 2.0) ** 2) / 0.5) +
+        0.15 * Math.sin(1.9 * x) * Math.cos(1.6 * y);
+      const grad = (x, y) => { const h = 1e-4; return [(f(x + h, y) - f(x - h, y)) / (2 * h), (f(x, y + h) - f(x, y - h)) / (2 * h)]; };
+      const Z = 1.1; // 高さの倍率
+      const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      const canvas = document.getElementById('gl');
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+      renderer.setClearColor(0x07090f);
+      const scene = new THREE.Scene();
+      scene.fog = new THREE.Fog(0x07090f, 9, 19);
+      const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
+
+      // 曲面(頂点色で高さを表す)+ ワイヤーフレーム
+      const SIZE = 7, SEG = 120;
+      const geo = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG);
+      const pos = geo.attributes.position;
+      const colors = new Float32Array(pos.count * 3);
+      const low = new THREE.Color(0x0c3b55), mid = new THREE.Color(0x2a6f9e), high = new THREE.Color(0xd9e6ff);
+      const c = new THREE.Color();
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i), y = pos.getY(i), z = f(x, y);
+        pos.setZ(i, z * Z);
+        const t = Math.min(1, Math.max(0, (z + 1.2) / 2.4));
+        t < 0.5 ? c.copy(low).lerp(mid, t * 2) : c.copy(mid).lerp(high, (t - 0.5) * 2);
+        colors.set([c.r, c.g, c.b], i * 3);
+      }
+      geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      geo.computeVertexNormals();
+      const surface = new THREE.Group();
+      surface.rotation.x = -Math.PI / 2;
+      scene.add(surface);
+      surface.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.22 })));
+      const wire = new THREE.LineSegments(new THREE.WireframeGeometry(new THREE.PlaneGeometry(SIZE, SIZE, 48, 48)), new THREE.LineBasicMaterial({ vertexColors: false, color: 0x6fb7e0, transparent: true, opacity: 0.28 }));
+      const wp = wire.geometry.attributes.position;
+      for (let i = 0; i < wp.count; i++) wp.setZ(i, f(wp.getX(i), wp.getY(i)) * Z + 0.002);
+      surface.add(wire);
+
+      // 玉と軌跡
+      const ball = new THREE.Mesh(new THREE.SphereGeometry(0.07, 24, 16), new THREE.MeshBasicMaterial({ color: 0xffb86b }));
+      const glow = new THREE.Mesh(new THREE.SphereGeometry(0.16, 24, 16), new THREE.MeshBasicMaterial({ color: 0xffb86b, transparent: true, opacity: 0.18 }));
+      surface.add(ball, glow);
+      const MAXT = 600;
+      const trailGeo = new THREE.BufferGeometry();
+      const trailPos = new Float32Array(MAXT * 3);
+      trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPos, 3));
+      const trail = new THREE.Line(trailGeo, new THREE.LineBasicMaterial({ color: 0xffb86b, transparent: true, opacity: 0.85 }));
+      surface.add(trail);
+
+      const rnd = window.seeded(7);
+      let run = 0, step = 0, x, y, vx, vy, count;
+      function restart() {
+        run++; step = 0; count = 0; vx = vy = 0;
+        // 外周のどこかから出発
+        const a = rnd() * Math.PI * 2;
+        x = Math.cos(a) * 3; y = Math.sin(a) * 3;
+        document.getElementById('r-run').textContent = run;
+      }
+      restart();
+      let rest = 0;
+      function sgd() {
+        if (rest > 0) { if (--rest === 0) restart(); return; }
+        const [gx, gy] = grad(x, y);
+        const noise = 0.5 * Math.max(0.02, 1 - step / 400);
+        vx = 0.9 * vx - 0.012 * (gx + noise * (rnd() - 0.5) * 2);
+        vy = 0.9 * vy - 0.012 * (gy + noise * (rnd() - 0.5) * 2);
+        x = Math.max(-3.4, Math.min(3.4, x + vx)); y = Math.max(-3.4, Math.min(3.4, y + vy));
+        step++;
+        if (count < MAXT) { trailPos.set([x, y, f(x, y) * Z + 0.03], count * 3); count++; }
+        trailGeo.setDrawRange(0, count);
+        trailGeo.attributes.position.needsUpdate = true;
+        if (step > 520 || (Math.hypot(vx, vy) < 1e-4 && step > 120)) rest = 90; // 止まったら少し見せてから次の試行へ
+        document.getElementById('r-step').textContent = step;
+        document.getElementById('r-loss').textContent = f(x, y).toFixed(4);
+      }
+      function place() {
+        const z = f(x, y) * Z + 0.07;
+        ball.position.set(x, y, z); glow.position.set(x, y, z);
+      }
+
+      function resize() {
+        const w = canvas.clientWidth, h = canvas.clientHeight;
+        renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+        renderer.setSize(w, h, false);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+      }
+      addEventListener('resize', resize);
+      resize();
+
+      let theta = 0.6, visible = true;
+      new IntersectionObserver(([e]) => (visible = e.isIntersecting)).observe(canvas);
+      function frame() {
+        if (visible) {
+          if (!reduce) { theta += 0.0012; for (let i = 0; i < 2; i++) sgd(); }
+          const narrow = canvas.clientWidth < 700;
+          const r = narrow ? 12.5 : 9.8;
+          // 広い画面では曲面を右に寄せ、左下の氏名と重ならないようにする
+          surface.position.x = narrow ? 0 : 1.8;
+          camera.position.set(Math.cos(theta) * r, 5.2, Math.sin(theta) * r);
+          camera.lookAt(narrow ? 0 : 0.6, -0.2, 0);
+          place();
+          renderer.render(scene, camera);
+        }
+        requestAnimationFrame(frame);
+      }
+      if (reduce) for (let i = 0; i < 300; i++) sgd(); // 動きを減らす設定では、途中まで進んだ静止画を出す
+      frame();
+    </script>
+  </body>
+</html>

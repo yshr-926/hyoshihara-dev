@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>03 論文 — hirotoyoshihara.dev</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=STIX+Two+Text:ital,wght@0,400;0,600;1,400&family=Noto+Serif+JP:wght@400;600;700&family=Noto+Sans+JP:wght@400;500&display=swap"
+    />
+    <script>
+      // MathJax(SVG 出力。外部 CSS・フォントを必要としない)
+      window.MathJax = { tex: { inlineMath: [['$', '$']] }, svg: { fontCache: 'global' }, startup: { typeset: false } };
+    </script>
+    <style>
+      /* レイアウト: プロフィールを 1 本のプレプリントとして組む。PDF ビューアのように紙面を 1 枚置き、
+         Abstract → 1. 専門領域(定式化)→ Algorithm 1 → Table 1(個人開発)→ 経歴 → References(連絡先)の順 */
+      :root {
+        --desk: #dfe3e8;
+        --paper: #ffffff;
+        --ink: #1b1d22;
+        --muted: #5a5f6b;
+        --rule: #1b1d22;
+        --hair: rgb(27 29 34 / 0.18);
+        --link: #1846a8;
+        --shadow: 0 1px 2px rgb(20 30 50 / 0.12), 0 12px 32px rgb(20 30 50 / 0.12);
+        --font-serif: 'STIX Two Text', 'Noto Serif JP', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+        --font-jp: 'Noto Serif JP', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+        --font-sans: 'Noto Sans JP', 'Hiragino Sans', sans-serif;
+        color-scheme: light;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) {
+          --desk: #15171c; --paper: #22252c; --ink: #e4e6eb; --muted: #a2a7b3; --rule: #e4e6eb;
+          --hair: rgb(228 230 235 / 0.2); --link: #8fb3ff; --shadow: 0 0 0 1px rgb(255 255 255 / 0.06); color-scheme: dark;
+        }
+      }
+      :root[data-theme='dark'] {
+        --desk: #15171c; --paper: #22252c; --ink: #e4e6eb; --muted: #a2a7b3; --rule: #e4e6eb;
+        --hair: rgb(228 230 235 / 0.2); --link: #8fb3ff; --shadow: 0 0 0 1px rgb(255 255 255 / 0.06); color-scheme: dark;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--desk); color: var(--ink); font-family: var(--font-serif); padding-inline: 0; padding-block: 0; }
+      .toolbar {
+        position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2;
+        display: flex; justify-content: space-between; gap: 12px; align-items: center;
+        padding: 8px 16px; background: var(--paper); border-bottom: 1px solid var(--hair);
+        font-family: var(--font-sans); font-size: 12px; color: var(--muted);
+      }
+      .toolbar nav { display: flex; gap: 4px; flex-wrap: wrap; }
+      .toolbar a { color: var(--muted); text-decoration: none; padding: 6px 8px; border-radius: 4px; }
+      .toolbar a:hover { background: var(--desk); color: var(--ink); }
+      .paper {
+        background: var(--paper); box-shadow: var(--shadow);
+        max-width: 46rem; margin: 32px auto 64px; padding: clamp(28px, 7vw, 72px) clamp(20px, 7vw, 80px) 56px;
+        font-size: 16.5px; line-height: 1.75;
+      }
+      @media (max-width: 760px) { .paper { margin: 0; box-shadow: none; } .toolbar > span { display: none; } }
+      a { color: var(--link); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      a:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+      .arxiv { font-family: var(--font-sans); font-size: 11px; color: var(--muted); letter-spacing: 0.04em; margin: 0 0 28px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+      h1 { font-family: var(--font-jp); font-size: clamp(30px, 6vw, 40px); font-weight: 700; text-align: center; line-height: 1.3; margin: 0; letter-spacing: 0.08em; }
+      .subtitle { text-align: center; font-size: 19px; margin: 6px 0 0; font-style: italic; }
+      .authors { text-align: center; margin: 22px 0 0; font-size: 15px; line-height: 1.6; }
+      .authors .aff { font-size: 13.5px; color: var(--muted); font-family: var(--font-jp); }
+      .abstract { margin: 32px auto 0; max-width: 36rem; font-size: 15px; line-height: 1.8; font-family: var(--font-jp); }
+      .abstract h2 { text-align: center; font-size: 15px; margin: 0 0 6px; font-family: var(--font-serif); font-weight: 600; letter-spacing: 0.02em; }
+      .abstract p { margin: 0; text-indent: 1em; }
+      .kw { margin: 10px 0 0 !important; text-indent: 0 !important; font-size: 13.5px; }
+      .kw b { font-weight: 600; font-style: italic; font-family: var(--font-serif); }
+      h2.sec { font-family: var(--font-jp); font-size: 19px; margin: 40px 0 10px; font-weight: 700; letter-spacing: 0.04em; }
+      h2.sec .n { font-family: var(--font-serif); margin-right: 0.8em; }
+      .body p { margin: 0 0 10px; text-indent: 1em; font-family: var(--font-jp); font-size: 15.5px; }
+      .eq { display: flex; align-items: center; justify-content: center; gap: 16px; margin: 18px 0; overflow-x: auto; }
+      .eq .no { margin-left: auto; font-size: 15px; }
+      .eq .tex { margin-left: auto; }
+      .noindent { text-indent: 0 !important; }
+      .algo { border-top: 1.5px solid var(--rule); border-bottom: 1.5px solid var(--rule); margin: 22px 0; font-size: 14.5px; }
+      .algo .cap { border-bottom: 1px solid var(--rule); padding: 4px 0; }
+      .algo .cap b { font-weight: 600; }
+      .algo ol { margin: 6px 0; padding-left: 2.2em; font-family: var(--font-jp); line-height: 1.9; }
+      .algo ol li::marker { font-family: var(--font-serif); font-size: 12px; color: var(--muted); }
+      .algo .kwd { font-family: var(--font-serif); font-weight: 600; }
+      .algo .io { padding: 4px 0 0; font-family: var(--font-jp); }
+      .algo .cm { color: var(--muted); font-family: var(--font-serif); font-style: italic; }
+      figure { margin: 24px 0; }
+      figcaption { font-size: 14px; text-align: center; margin-bottom: 6px; font-family: var(--font-jp); }
+      figcaption b { font-family: var(--font-serif); font-weight: 600; }
+      .tbl { overflow-x: auto; }
+      table { border-collapse: collapse; width: 100%; font-size: 14px; font-family: var(--font-jp); }
+      thead tr { border-top: 1.5px solid var(--rule); border-bottom: 1px solid var(--rule); }
+      tbody tr:last-child { border-bottom: 1.5px solid var(--rule); }
+      th { font-weight: 600; text-align: left; padding: 6px 10px; font-family: var(--font-serif); white-space: nowrap; }
+      td { padding: 6px 10px; vertical-align: top; }
+      td.name { font-family: var(--font-serif); white-space: nowrap; }
+      td.stack { font-family: var(--font-serif); font-size: 13px; color: var(--muted); }
+      .refs { list-style: none; padding: 0; margin: 0; font-size: 14.5px; font-family: var(--font-jp); }
+      .refs li { display: grid; grid-template-columns: 2.4em minmax(0, 1fr); gap: 6px; margin-bottom: 8px; }
+      .refs .k { font-family: var(--font-serif); }
+      .refs i { font-family: var(--font-serif); }
+      .foot { border-top: 1px solid var(--hair); margin-top: 40px; padding-top: 10px; font-size: 12.5px; color: var(--muted); font-family: var(--font-jp); }
+      .foot p { margin: 0 0 4px; }
+      sup { font-size: 0.65em; }
+      mjx-container[display='true'] { margin: 0 !important; }
+    </style>
+  </head>
+  <body>
+    <div class="toolbar">
+      <span>hirotoyoshihara.dev / profile.pdf</span>
+      <nav aria-label="セクション">
+        <a href="#s1">1 専門領域</a><a href="#s2">2 個人開発</a><a href="#s3">3 経歴</a><a href="#refs">連絡先</a><a href="#">記事</a>
+      </nav>
+    </div>
+    <article class="paper" id="paper"></article>
+
+    <script src="profile-data.js"></script>
+    <script>
+      const P = window.PROFILE, esc = window.esc;
+      const contacts = [...P.contacts].sort((a, b) => (b.primary ? 1 : 0) - (a.primary ? 1 : 0));
+      const cite = Object.fromEntries(contacts.map((c, i) => [c.id, i + 1]));
+      const projectRef = (i) => contacts.length + i + 1;
+      document.getElementById('paper').innerHTML = `
+        <p class="arxiv"><span>hirotoyoshihara.dev · profile</span><span>最終更新 ${P.updatedAt}</span></p>
+        <h1>${esc(P.fullNameJa)}</h1>
+        <p class="subtitle" lang="en">${esc(P.fullName)}</p>
+        <p class="authors">${esc(P.title)}<sup>1</sup><br /><span class="aff"><sup>1</sup>${esc(P.career[0].company)}</span></p>
+
+        <section class="abstract" aria-labelledby="abs">
+          <h2 id="abs">Abstract</h2>
+          <p>${esc(P.intro)}</p>
+          <p class="kw"><b>Keywords:</b> ${P.fieldGroups.flatMap((g) => g.items).map(esc).join(', ')}</p>
+        </section>
+
+        <div class="body">
+          <h2 class="sec" id="s1"><span class="n">1</span>専門領域</h2>
+          <p>仕事の中心は${esc(P.domain)}である。対象ドメインの制約の集合を $\\mathcal{C}$、評価基準を $J$ として、次の問題として書き下すところから始める。</p>
+          <div class="eq"><span class="tex">$$x^{\\star} \\in \\mathop{\\arg\\min}_{x \\in \\mathcal{X}} \\; J(x) \\quad \\text{s.t.} \\quad c(x) \\le 0 \\;\\; (\\forall c \\in \\mathcal{C})$$</span><span class="no">(1)</span></div>
+          <p>扱う手法は次の 3 群に分かれる。主な使用言語は ${P.languages.join(', ')}。</p>
+          ${P.fieldGroups.map((g, i) => `<p class="noindent"><b>1.${i + 1}&ensp;${esc(g.label)}.</b>&ensp;${g.items.map(esc).join('、')}。</p>`).join('')}
+          <p>確率的最適化では、勾配の不偏推定 $\\hat{g}_t$ を用いた更新 $\\theta_{t+1} = \\theta_t - \\eta_t \\hat{g}_t$ を基本形とする。</p>
+
+          <div class="algo" role="figure" aria-label="Algorithm 1">
+            <div class="cap"><b>Algorithm 1</b>&ensp;ドメインに基づいたアルゴリズム開発</div>
+            <div class="io"><span class="kwd">Input:</span> 対象ドメイン $D$</div>
+            <ol>
+              <li>$\\mathcal{C} \\leftarrow$ 制約を定式化する$(D)$</li>
+              <li>$J \\leftarrow$ 評価基準を定式化する$(D)$</li>
+              <li>$A \\leftarrow$ アルゴリズムを設計する$(\\mathcal{C}, J)$&emsp;<span class="cm">▷ 式 (1)</span></li>
+              <li><span class="kwd">return</span> $A$</li>
+            </ol>
+          </div>
+
+          <h2 class="sec" id="s2"><span class="n">2</span>個人開発</h2>
+          <p>公開中のものを表 1 に示す${P.projects.map((_, i) => `[${projectRef(i)}]`).join('')}。</p>
+          <figure>
+            <figcaption><b>Table 1:</b> 公開中の個人開発</figcaption>
+            <div class="tbl"><table>
+              <thead><tr><th>Name</th><th>Description</th><th>Stack</th></tr></thead>
+              <tbody>${P.projects.map((p) => `<tr><td class="name"><a href="${p.href}">${esc(p.name)}</a></td><td>${esc(p.description)}</td><td class="stack">${p.stack.map(esc).join(', ')}</td></tr>`).join('')}</tbody>
+            </table></div>
+          </figure>
+
+          <h2 class="sec" id="s3"><span class="n">3</span>経歴</h2>
+          <figure>
+            <figcaption><b>Table 2:</b> 職歴と学歴</figcaption>
+            <div class="tbl"><table>
+              <thead><tr><th>Period</th><th>Affiliation</th><th></th></tr></thead>
+              <tbody>
+                ${P.career.map((c) => `<tr><td class="name">${c.from}–${c.to}</td><td>${esc(c.company)}</td><td>${esc(c.role)}</td></tr>`).join('')}
+                ${P.education.map((e) => `<tr><td class="name">${e.year}</td><td>${esc(e.school)}</td><td>${esc(e.status)}</td></tr>`).join('')}
+              </tbody>
+            </table></div>
+          </figure>
+
+          <h2 class="sec" id="refs">References</h2>
+          <ol class="refs">
+            ${contacts.map((c) => `<li><span class="k">[${cite[c.id]}]</span><span>${esc(c.label)}. <i>${esc(c.handle)}</i>. ${esc(c.role)}. <a href="${c.href}" rel="me noopener">${esc(c.href.replace('https://', ''))}</a></span></li>`).join('')}
+            ${P.projects.map((p, i) => `<li><span class="k">[${projectRef(i)}]</span><span>${esc(p.name)}. <a href="${p.href}">${esc(p.href.replace('https://', ''))}</a>${p.repo ? `, code: <a href="${p.repo}">${esc(p.repo.replace('https://', ''))}</a>` : ''}</span></li>`).join('')}
+          </ol>
+
+          <div class="foot">
+            <p>連絡は主に LinkedIn [1] で受け付けています。記事は公開分が 0 件のため、ここには載せていません。</p>
+          </div>
+        </div>`;
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js" async></script>
+    <script>
+      // MathJax 読み込み後に組版する(読み込めなくても本文は TeX のまま読める)
+      (function wait() {
+        if (window.MathJax && MathJax.typesetPromise) MathJax.startup.promise.then(() => MathJax.typesetPromise([document.getElementById('paper')]));
+        else setTimeout(wait, 50);
+      })();
+    </script>
+  </body>
+</html>

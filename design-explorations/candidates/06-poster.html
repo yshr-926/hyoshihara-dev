@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>06 ポスター — hirotoyoshihara.dev</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@500;700;900&family=Archivo:wdth,wght@62..125,400..800&family=Zen+Kaku+Gothic+New:wght@400;500&display=swap"
+    />
+    <style>
+      /* レイアウト: 経歴の文脈(図面・方眼)から離れた、純粋な文字組みのポスター。
+         巨大な明朝の氏名を左右にずらして置き、以降は 12 カラムの非対称グリッド(左に欧文の見出し、右に本文)。
+         装飾は使わず、文字の大きさと余白だけで階層を作る。差し色はリンクの群青 1 色 */
+      :root {
+        --bg: #fafaf9;
+        --ink: #0c0c0d;
+        --muted: #6b6b70;
+        --rule: rgb(12 12 13 / 0.9);
+        --soft: rgb(12 12 13 / 0.08);
+        --accent: #2730d6;
+        --font-display: 'Zen Old Mincho', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+        --font-latin: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
+        --font-body: 'Zen Kaku Gothic New', 'Hiragino Sans', 'Yu Gothic UI', sans-serif;
+        color-scheme: light;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) {
+          --bg: #0c0c0d; --ink: #f2f2ef; --muted: #9a9aa0; --rule: rgb(242 242 239 / 0.9); --soft: rgb(242 242 239 / 0.08); --accent: #9ea3ff; color-scheme: dark;
+        }
+      }
+      :root[data-theme='dark'] {
+        --bg: #0c0c0d; --ink: #f2f2ef; --muted: #9a9aa0; --rule: rgb(242 242 239 / 0.9); --soft: rgb(242 242 239 / 0.08); --accent: #9ea3ff; color-scheme: dark;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); line-height: 1.8; letter-spacing: 0.02em; }
+      a { color: inherit; text-decoration: none; }
+      a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+      .page { max-width: 90rem; margin: 0 auto; padding-inline: 16px; padding-block: 20px 0; }
+      @media (min-width: 900px) { .page { padding-inline: 48px; } }
+      .top { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; font-family: var(--font-latin); font-stretch: 125%; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+      .top nav { display: flex; gap: 20px; }
+      .top a:hover { color: var(--accent); }
+
+      .name { position: relative; margin: clamp(32px, 8vw, 96px) 0 0; }
+      h1 { margin: 0; font-family: var(--font-display); font-weight: 900; line-height: 1; letter-spacing: -0.04em; font-size: clamp(96px, 22vw, 320px); }
+      h1 span { display: block; }
+      h1 span + span { padding-left: 0.62em; }
+      .latin { font-family: var(--font-latin); font-stretch: 62%; font-weight: 800; text-transform: uppercase; font-size: clamp(22px, 4.4vw, 64px); line-height: 0.95; letter-spacing: 0; margin: 18px 0 0; }
+      @media (min-width: 900px) {
+        .latin { position: absolute; right: 0; top: 0.2em; margin: 0; writing-mode: vertical-rl; }
+      }
+
+      .grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: 24px; border-top: 2px solid var(--rule); margin-top: clamp(40px, 6vw, 80px); padding-block: 20px clamp(56px, 8vw, 112px); }
+      .grid > * { min-width: 0; }
+      .lbl { grid-column: 1 / -1; font-family: var(--font-latin); font-stretch: 125%; font-weight: 700; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; margin: 0 0 20px; display: flex; gap: 10px; align-items: baseline; }
+      .lbl small { font-family: var(--font-body); font-stretch: 100%; text-transform: none; letter-spacing: 0.04em; font-weight: 400; color: var(--muted); font-size: 12px; }
+      .body { grid-column: 1 / -1; }
+      @media (min-width: 900px) { .lbl { grid-column: 1 / span 3; } .body { grid-column: 5 / -1; } .grid { padding-top: 24px; } }
+
+      .statement { font-family: var(--font-display); font-weight: 700; font-size: clamp(24px, 3.4vw, 44px); line-height: 1.45; margin: 0; letter-spacing: 0.01em; text-wrap: pretty; }
+      .statement em { font-style: normal; color: var(--accent); }
+      .intro { margin: 24px 0 0; max-width: 36em; color: var(--muted); font-size: 15px; }
+
+      .fields { display: grid; gap: 32px; }
+      @media (min-width: 700px) { .fields { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+      .fields h3 { font-family: var(--font-display); font-size: 22px; margin: 0 0 10px; font-weight: 700; }
+      .fields ul { list-style: none; padding: 0; margin: 0; font-size: 15px; color: var(--muted); line-height: 2; }
+      .lang { margin: 28px 0 0; font-size: 13px; color: var(--muted); }
+
+      .projects { list-style: none; padding: 0; margin: 0; }
+      .projects li { border-bottom: 1px solid var(--soft); }
+      .projects li:first-child { border-top: 1px solid var(--soft); }
+      .projects a.row { display: grid; gap: 4px 32px; padding: 22px 0; grid-template-columns: minmax(0, 1fr); }
+      @media (min-width: 700px) { .projects a.row { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); align-items: baseline; } }
+      .pname { font-family: var(--font-latin); font-stretch: 112%; font-weight: 800; font-size: clamp(32px, 5vw, 64px); line-height: 1; letter-spacing: -0.02em; transition: color 0.2s, transform 0.3s cubic-bezier(0.23, 1, 0.32, 1); }
+      .pdesc { font-size: 15px; color: var(--muted); }
+      .pstack { display: block; font-family: var(--font-latin); font-stretch: 125%; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 6px; }
+      @media (hover: hover) { .projects a.row:hover .pname { color: var(--accent); transform: translateX(8px); } }
+      @media (prefers-reduced-motion: reduce) { .pname { transition: none; } }
+      .repo { display: inline-flex; min-height: 44px; align-items: center; font-size: 13px; color: var(--muted); margin-top: -12px; padding-bottom: 8px; }
+      .repo:hover { color: var(--accent); }
+
+      .rows { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; font-size: 17px; }
+      .rows li { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: 16px; }
+      .rows time { font-family: var(--font-latin); font-stretch: 125%; font-size: 13px; font-weight: 600; padding-top: 4px; font-variant-numeric: tabular-nums; }
+      .rows .now { color: var(--accent); }
+      .rows .edu { color: var(--muted); }
+      .empty { margin: 0; color: var(--muted); }
+
+      .contacts { list-style: none; padding: 0; margin: 0; }
+      .contacts a { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; border-bottom: 2px solid var(--rule); padding: 14px 0 10px; }
+      .contacts .big { font-family: var(--font-latin); font-stretch: 125%; font-weight: 800; font-size: clamp(32px, 7vw, 96px); line-height: 1; text-transform: uppercase; letter-spacing: -0.02em; }
+      .contacts small { font-size: 13px; color: var(--muted); white-space: nowrap; }
+      .contacts a:hover .big { color: var(--accent); }
+      footer { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 24px 0 32px; font-family: var(--font-latin); font-stretch: 125%; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+      @media (max-width: 520px) { .rows li { grid-template-columns: 1fr; gap: 0; } }
+    </style>
+  </head>
+  <body>
+    <div class="page" id="page"></div>
+    <script src="profile-data.js"></script>
+    <script>
+      const P = window.PROFILE, esc = window.esc;
+      const contacts = [...P.contacts].sort((a, b) => (b.primary ? 1 : 0) - (a.primary ? 1 : 0));
+      const [family, given] = P.fullNameJa.split(' ');
+      document.getElementById('page').innerHTML = `
+        <header class="top">
+          <span>${esc(P.siteName)}</span>
+          <nav aria-label="サイト"><a href="#work">Work</a><a href="#posts">Posts</a><a href="#contact">Contact</a></nav>
+        </header>
+        <div class="name">
+          <h1><span>${esc(family)}</span><span>${esc(given)}</span></h1>
+          <p class="latin" lang="en">${esc(P.fullName)}</p>
+        </div>
+
+        <section class="grid" aria-labelledby="l-about">
+          <p class="lbl" id="l-about">About <small>${esc(P.title)}</small></p>
+          <div class="body">
+            <p class="statement">対象ドメインの制約と評価基準を定式化し、<em>アルゴリズム</em>を設計する。</p>
+            <p class="intro">${esc(P.intro)}</p>
+          </div>
+        </section>
+
+        <section class="grid" aria-labelledby="l-fields">
+          <p class="lbl" id="l-fields">Fields <small>専門領域</small></p>
+          <div class="body">
+            <div class="fields">${P.fieldGroups.map((g) => `<div><h3>${esc(g.label)}</h3><ul>${g.items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul></div>`).join('')}</div>
+            <p class="lang">主な使用言語 — ${P.languages.join(' / ')}</p>
+          </div>
+        </section>
+
+        <section class="grid" id="work" aria-labelledby="l-work">
+          <p class="lbl" id="l-work">Work <small>個人開発</small></p>
+          <div class="body">
+            <ul class="projects">${P.projects.map((p) => `
+              <li>
+                <a class="row" href="${p.href}"><span class="pname">${esc(p.name)}</span><span class="pdesc">${esc(p.description)}<span class="pstack">${p.stack.map(esc).join(' · ')}</span></span></a>
+                ${p.repo ? `<a class="repo" href="${p.repo}">ソースコード ↗</a>` : ''}
+              </li>`).join('')}
+            </ul>
+          </div>
+        </section>
+
+        <section class="grid" aria-labelledby="l-career">
+          <p class="lbl" id="l-career">Career <small>経歴</small></p>
+          <div class="body">
+            <ul class="rows">
+              ${P.career.map((c) => `<li><time>${c.from} — <span class="now">${c.to}</span></time><span>${esc(c.company)}<br />${esc(c.role)}</span></li>`).join('')}
+              ${P.education.map((e) => `<li class="edu"><time>${e.year}</time><span>${esc(e.school)} ${esc(e.status)}</span></li>`).join('')}
+            </ul>
+          </div>
+        </section>
+
+        <section class="grid" id="posts" aria-labelledby="l-posts">
+          <p class="lbl" id="l-posts">Posts <small>記事</small></p>
+          <div class="body"><p class="empty">公開した記事はここに並びます(現在 0 件)。</p></div>
+        </section>
+
+        <section class="grid" id="contact" aria-labelledby="l-contact" style="padding-bottom:0">
+          <p class="lbl" id="l-contact">Contact <small>連絡先</small></p>
+          <div class="body">
+            <ul class="contacts">${contacts.map((c) => `<li><a href="${c.href}" rel="me noopener"><span class="big">${esc(c.label)}</span><small>${esc(c.role)} ↗</small></a></li>`).join('')}</ul>
+          </div>
+        </section>
+        <footer><span>${esc(P.fullName)}</span><span>Updated ${P.updatedAt}</span></footer>`;
+    </script>
+  </body>
+</html>

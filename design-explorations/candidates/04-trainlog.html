@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>04 学習ログ — hirotoyoshihara.dev</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=BIZ+UDGothic:wght@400;700&display=swap"
+    />
+    <style>
+      /* レイアウト: 1 本の学習ジョブのターミナル出力として組む。設定(YAML)→ epoch ごとのログ → 評価。
+         右上に損失曲線、下端に tmux 風のステータスバー。全文等幅(和文も BIZ UDゴシックで字送りを揃える) */
+      :root {
+        --bg: #f4f2ee;
+        --panel: #ebe8e1;
+        --fg: #2a2723;
+        --dim: #7a746b;
+        --key: #2f6f8f;
+        --str: #3f7d3a;
+        --num: #a34e1b;
+        --ok: #3f7d3a;
+        --bar: #2a2723;
+        --bar-fg: #f4f2ee;
+        --line: rgb(42 39 35 / 0.14);
+        --font: 'JetBrains Mono', 'BIZ UDGothic', ui-monospace, Menlo, monospace;
+        color-scheme: light;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) {
+          --bg: #101214; --panel: #171a1d; --fg: #d6dbe0; --dim: #6c757e; --key: #7cc4e6; --str: #a7d98b;
+          --num: #f2a65a; --ok: #a7d98b; --bar: #a7d98b; --bar-fg: #101214; --line: rgb(214 219 224 / 0.12); color-scheme: dark;
+        }
+      }
+      :root[data-theme='dark'] {
+        --bg: #101214; --panel: #171a1d; --fg: #d6dbe0; --dim: #6c757e; --key: #7cc4e6; --str: #a7d98b;
+        --num: #f2a65a; --ok: #a7d98b; --bar: #a7d98b; --bar-fg: #101214; --line: rgb(214 219 224 / 0.12); color-scheme: dark;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 14px; line-height: 1.75; padding-bottom: 44px; }
+      a { color: var(--fg); text-decoration: underline; text-decoration-color: var(--dim); text-underline-offset: 3px; }
+      a:hover { color: var(--key); text-decoration-color: var(--key); }
+      a:focus-visible { outline: 2px solid var(--key); outline-offset: 2px; }
+      .term { max-width: 64rem; margin: 0 auto; padding-inline: 16px; padding-block: 28px 48px; display: grid; gap: 28px; }
+      @media (min-width: 900px) { .term { grid-template-columns: minmax(0, 1fr) 18rem; column-gap: 40px; padding-inline: 32px; } .side { grid-column: 2; grid-row: 1 / span 9; position: sticky; top: 24px; align-self: start; } }
+      .prompt { color: var(--dim); margin: 0; white-space: pre-wrap; word-break: break-all; }
+      .prompt b { color: var(--ok); font-weight: 500; }
+      .prompt .cmd { color: var(--fg); }
+      .cursor { display: inline-block; width: 0.6em; height: 1.1em; background: var(--fg); vertical-align: -0.2em; animation: blink 1.1s steps(1) infinite; }
+      @keyframes blink { 50% { opacity: 0; } }
+      @media (prefers-reduced-motion: reduce) { .cursor { animation: none; } }
+      h1 { font-size: clamp(28px, 6vw, 44px); line-height: 1.15; margin: 0; font-weight: 700; letter-spacing: 0; }
+      h1 .en { display: block; font-size: 15px; font-weight: 400; color: var(--dim); margin-top: 8px; }
+      pre.yaml { margin: 0; background: var(--panel); border: 1px solid var(--line); padding: 16px; overflow-x: auto; white-space: pre-wrap; word-break: break-word; font: inherit; }
+      .k { color: var(--key); } .s { color: var(--str); } .n { color: var(--num); } .c { color: var(--dim); }
+      .epoch { display: grid; gap: 10px; }
+      .epoch h2 { font-size: 14px; font-weight: 500; margin: 0; display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--dim); }
+      .epoch h2 .tag { color: var(--fg); font-weight: 700; }
+      .epoch h2 .n { font-variant-numeric: tabular-nums; }
+      .bar { color: var(--ok); letter-spacing: -0.05em; }
+      .out { border-left: 1px solid var(--line); padding-left: 16px; margin-left: 4px; display: grid; gap: 6px; }
+      .out p { margin: 0; }
+      .row { display: grid; grid-template-columns: 9.5rem minmax(0, 1fr); gap: 12px; }
+      .row .lbl { color: var(--dim); }
+      .proj { display: grid; gap: 2px; padding: 4px 0; }
+      .proj .nm { font-weight: 700; }
+      .proj .d { color: var(--dim); }
+      .ok { color: var(--ok); }
+      .side h2 { font-size: 12px; color: var(--dim); font-weight: 400; margin: 0 0 8px; }
+      .side svg { display: block; width: 100%; height: auto; background: var(--panel); border: 1px solid var(--line); }
+      .side .stats { margin: 10px 0 0; font-size: 12px; color: var(--dim); display: grid; grid-template-columns: auto 1fr; gap: 0 12px; font-variant-numeric: tabular-nums; }
+      .side .stats dd { margin: 0; color: var(--fg); text-align: right; }
+      .contacts { list-style: none; padding: 0; margin: 16px 0 0; display: grid; gap: 2px; }
+      .contacts a { display: inline-flex; min-height: 36px; align-items: center; gap: 10px; }
+      .contacts span { color: var(--dim); font-size: 12px; }
+      .status {
+        position: fixed; left: 0; right: 0; bottom: 0; z-index: 3;
+        background: var(--bar); color: var(--bar-fg);
+        display: flex; justify-content: space-between; gap: 12px;
+        padding: 6px 16px calc(6px + env(safe-area-inset-bottom, 0px));
+        font-size: 12px; white-space: nowrap; overflow: hidden;
+      }
+      .status nav { display: flex; gap: 2px; overflow-x: auto; }
+      .status a { color: var(--bar-fg); text-decoration: none; padding: 0 8px; }
+      .status a:hover { background: rgb(0 0 0 / 0.15); }
+      @media (max-width: 560px) { .row { grid-template-columns: 1fr; gap: 0; } .status .right { display: none; } }
+      #curve path.loss { stroke-dasharray: var(--len); stroke-dashoffset: var(--len); animation: draw 2.4s cubic-bezier(0.23, 1, 0.32, 1) 0.2s forwards; }
+      @keyframes draw { to { stroke-dashoffset: 0; } }
+      @media (prefers-reduced-motion: reduce) { #curve path.loss { animation: none; stroke-dashoffset: 0; } }
+    </style>
+  </head>
+  <body>
+    <main class="term" id="term"></main>
+    <div class="status">
+      <nav aria-label="セクション">
+        <a href="#e1">[0] fields</a><a href="#e2">[1] projects</a><a href="#e3">[2] career</a><a href="#e4">[3] posts</a>
+      </nav>
+      <span class="right" id="status-right"></span>
+    </div>
+
+    <script src="profile-data.js"></script>
+    <script>
+      const P = window.PROFILE, esc = window.esc;
+      const contacts = [...P.contacts].sort((a, b) => (b.primary ? 1 : 0) - (a.primary ? 1 : 0));
+
+      // 損失曲線(SGD らしいノイズ付きの減衰。表示用の生成データ)
+      const rnd = window.seeded(11);
+      const loss = Array.from({ length: 160 }, (_, i) => 2.3 * Math.exp(-i / 28) + 0.18 + (rnd() - 0.5) * 0.22 * Math.exp(-i / 70));
+      const epochs = 4, per = loss.length / epochs;
+      const lossAt = (e) => loss[Math.min(loss.length - 1, Math.round(e * per) - 1)].toFixed(4);
+      const bar = (e) => '█'.repeat(e * 5) + '░'.repeat((epochs - e) * 5);
+
+      const yaml = [
+        ['# config/hiroto.yaml'],
+        ['name', P.fullNameJa],
+        ['name_en', P.fullName],
+        ['role', P.title],
+        ['objective', P.domain],
+        ['affiliation', P.career[0].company],
+        ['lang', `[${P.languages.join(', ')}]`, true],
+        ['updated_at', P.updatedAt, true],
+      ]
+        .map(([k, v, raw]) => (v === undefined ? `<span class="c">${esc(k)}</span>` : `<span class="k">${k}</span>: ${raw ? `<span class="n">${esc(v)}</span>` : `<span class="s">"${esc(v)}"</span>`}`))
+        .join('\n');
+
+      const epoch = (i, id, tag, body) => `
+        <section class="epoch" id="${id}" aria-labelledby="${id}-h">
+          <h2 id="${id}-h"><span>epoch <span class="n">${i}/${epochs}</span></span><span class="tag">${tag}</span><span class="bar" aria-hidden="true">${bar(i)}</span><span>loss=<span class="n">${lossAt(i)}</span></span></h2>
+          <div class="out">${body}</div>
+        </section>`;
+
+      document.getElementById('term').innerHTML = `
+        <header style="display:grid;gap:14px">
+          <p class="prompt"><b>hiroto@dev</b>:~$ <span class="cmd">python train.py --config config/hiroto.yaml</span></p>
+          <h1>${esc(P.fullNameJa)}<span class="en" lang="en">${esc(P.fullName)} — ${esc(P.title)}</span></h1>
+          <p style="margin:0;color:var(--dim)">${esc(P.intro)}</p>
+        </header>
+        <pre class="yaml" aria-label="プロフィールの設定">${yaml}</pre>
+        ${epoch(1, 'e1', '専門領域', P.fieldGroups.map((g) => `<p class="row"><span class="lbl">${esc(g.label)}</span><span>${g.items.map(esc).join(' · ')}</span></p>`).join(''))}
+        ${epoch(2, 'e2', '個人開発', P.projects.map((p) => `<div class="proj"><span><a class="nm" href="${p.href}">${esc(p.name)}</a>${p.repo ? ` <a href="${p.repo}" style="color:var(--dim)">[src]</a>` : ''}</span><span class="d">${esc(p.description)}</span><span class="c">stack=${p.stack.map(esc).join(',')}</span></div>`).join(''))}
+        ${epoch(3, 'e3', '経歴', [
+          ...P.career.map((c) => `<p class="row"><span class="lbl">${c.from}–<span class="ok">${c.to}</span></span><span>${esc(c.company)} / ${esc(c.role)}</span></p>`),
+          ...P.education.map((e) => `<p class="row"><span class="lbl">${e.year}</span><span>${esc(e.school)} ${esc(e.status)}</span></p>`),
+        ].join(''))}
+        ${epoch(4, 'e4', '記事', `<p class="c">INFO: 公開記事 0 件。公開するとここに新しい順で並びます。</p>`)}
+        <p class="prompt"><span class="ok">✓ training finished.</span> best checkpoint → <a href="${contacts[0].href}" rel="me noopener">${esc(contacts[0].label)}</a></p>
+        <p class="prompt"><b>hiroto@dev</b>:~$ <span class="cursor" aria-hidden="true"></span></p>
+        <aside class="side" aria-label="学習曲線と連絡先">
+          <h2>train/loss</h2>
+          <svg id="curve" viewBox="0 0 280 150" role="img" aria-label="損失が下がっていく曲線(装飾)"></svg>
+          <dl class="stats"><dt>epochs</dt><dd>${epochs}</dd><dt>final loss</dt><dd>${loss.at(-1).toFixed(4)}</dd><dt>optimizer</dt><dd>SGD(m=0.9)</dd></dl>
+          <h2 style="margin-top:24px">contacts</h2>
+          <ul class="contacts">${contacts.map((c) => `<li><a href="${c.href}" rel="me noopener">${esc(c.label)} <span>${esc(c.role)}</span></a></li>`).join('')}</ul>
+        </aside>`;
+      document.getElementById('status-right').textContent = `${P.siteName} · ${P.updatedAt}`;
+
+      // 損失曲線を SVG で描く(目盛りは y の実データ範囲に合わせる)
+      const svg = document.getElementById('curve');
+      const W = 280, H = 150, pad = { l: 34, r: 8, t: 10, b: 20 };
+      const ymax = 2.6, ymin = 0;
+      const X = (i) => pad.l + (i / (loss.length - 1)) * (W - pad.l - pad.r);
+      const Y = (v) => pad.t + (1 - (v - ymin) / (ymax - ymin)) * (H - pad.t - pad.b);
+      const d = loss.map((v, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join('');
+      const ticks = [0, 1, 2].map((v) => `<line x1="${pad.l}" x2="${W - pad.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)" /><text x="${pad.l - 6}" y="${Y(v) + 3}" text-anchor="end" font-size="9" fill="var(--dim)">${v.toFixed(1)}</text>`).join('');
+      const eticks = Array.from({ length: epochs + 1 }, (_, e) => `<text x="${X(Math.min(loss.length - 1, e * per))}" y="${H - 6}" text-anchor="middle" font-size="9" fill="var(--dim)">${e}</text>`).join('');
+      svg.innerHTML = `${ticks}${eticks}<path class="loss" d="${d}" fill="none" stroke="var(--num)" stroke-width="1.4" stroke-linejoin="round" /><circle cx="${X(loss.length - 1)}" cy="${Y(loss.at(-1))}" r="3" fill="var(--num)" />`;
+      const p = svg.querySelector('path.loss');
+      p.style.setProperty('--len', p.getTotalLength());
+    </script>
+  </body>
+</html>

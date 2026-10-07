@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>05 探索木 — hirotoyoshihara.dev</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+Antique:wght@400;500;700&family=Fragment+Mono&display=swap"
+    />
+    <style>
+      /* レイアウト: サイト全体を 1 本の探索木として見せる。根 = 本人、枝 = セクション、葉 = 項目。
+         lg では左に木(d3.tree)を固定、右に本文。スクロール位置の節点までの経路が「現在の探索経路」として色付く */
+      :root {
+        --bg: #fbfbfa;
+        --surface: #ffffff;
+        --ink: #14171a;
+        --muted: #646b72;
+        --edge: #c9cdd1;
+        --visit: #0f7b6c;
+        --visit-soft: rgb(15 123 108 / 0.1);
+        --line: rgb(20 23 26 / 0.1);
+        --font-body: 'Zen Kaku Gothic Antique', 'Hiragino Sans', 'Yu Gothic UI', sans-serif;
+        --font-mono: 'Fragment Mono', ui-monospace, Menlo, monospace;
+        color-scheme: light;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) {
+          --bg: #111417; --surface: #171b1f; --ink: #e6e9ec; --muted: #949ca4; --edge: #384047;
+          --visit: #4fd1bb; --visit-soft: rgb(79 209 187 / 0.12); --line: rgb(230 233 236 / 0.1); color-scheme: dark;
+        }
+      }
+      :root[data-theme='dark'] {
+        --bg: #111417; --surface: #171b1f; --ink: #e6e9ec; --muted: #949ca4; --edge: #384047;
+        --visit: #4fd1bb; --visit-soft: rgb(79 209 187 / 0.12); --line: rgb(230 233 236 / 0.1); color-scheme: dark;
+      }
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+      body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); line-height: 1.8; letter-spacing: 0.02em; }
+      a { color: inherit; text-decoration-color: var(--edge); text-underline-offset: 4px; }
+      a:hover { text-decoration-color: var(--visit); color: var(--visit); }
+      a:focus-visible, button:focus-visible { outline: 2px solid var(--visit); outline-offset: 2px; }
+      .layout { max-width: 76rem; margin: 0 auto; padding-inline: 16px; padding-block: 24px 96px; }
+      @media (min-width: 1040px) {
+        .layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 34rem); gap: 56px; padding-inline: 32px; }
+        .treebox { position: sticky; top: 24px; align-self: start; height: calc(100vh - 48px); }
+      }
+      .treebox { border: 1px solid var(--line); background: var(--surface); display: flex; flex-direction: column; min-height: 420px; }
+      .treebox header { display: flex; justify-content: space-between; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--line); font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+      .treebox header b { color: var(--visit); font-weight: 400; }
+      #tree { flex: 1; min-height: 0; width: 100%; overflow: auto; }
+      #tree svg { display: block; }
+      .node text { font-family: var(--font-body); font-size: 12.5px; fill: var(--muted); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+      .node circle { fill: var(--surface); stroke: var(--edge); stroke-width: 1.4; }
+      .node.branch text { fill: var(--ink); font-weight: 700; font-size: 13.5px; }
+      .node.root text { fill: var(--ink); font-weight: 700; font-size: 15px; }
+      .node.on circle { fill: var(--visit); stroke: var(--visit); }
+      .node.on text { fill: var(--visit); }
+      .node { cursor: pointer; }
+      .node:hover circle { stroke: var(--visit); }
+      .link { fill: none; stroke: var(--edge); stroke-width: 1.2; }
+      .link.on { stroke: var(--visit); stroke-width: 2.2; }
+      .pruned { stroke-dasharray: 3 4; }
+      @media (max-width: 1039px) { .treebox { margin-bottom: 40px; } #tree { max-height: 460px; } }
+
+      .content { display: grid; gap: 64px; padding-top: 8px; }
+      .path { font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin: 0 0 10px; }
+      .path b { color: var(--visit); font-weight: 400; }
+      h1 { font-size: clamp(40px, 7vw, 60px); line-height: 1.05; margin: 0; letter-spacing: -0.01em; font-weight: 700; }
+      .en { font-family: var(--font-mono); font-size: 13px; color: var(--muted); margin: 10px 0 0; }
+      .role { margin: 24px 0 0; font-weight: 700; font-size: 19px; line-height: 1.5; }
+      .role span { display: block; font-weight: 400; color: var(--muted); font-size: 16px; }
+      .intro { margin: 16px 0 0; color: var(--muted); font-size: 15px; }
+      h2 { font-size: 22px; margin: 0 0 16px; letter-spacing: 0.02em; }
+      .leaf { padding: 12px 14px; margin: 0 -14px; border-radius: 6px; transition: background-color 0.2s; }
+      .leaf.on { background: var(--visit-soft); }
+      .leaf h3 { margin: 0; font-size: 16px; }
+      .leaf p { margin: 2px 0 0; font-size: 14px; color: var(--muted); }
+      .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; list-style: none; padding: 0; }
+      .chips li { font-size: 13px; border: 1px solid var(--line); padding: 1px 10px; border-radius: 999px; }
+      .stack { font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin-top: 4px; }
+      .rows { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+      .rows li { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: 12px; }
+      .rows time { font-family: var(--font-mono); font-size: 12px; color: var(--muted); padding-top: 3px; }
+      .now { color: var(--visit); }
+      .contacts { display: flex; flex-wrap: wrap; gap: 4px 20px; list-style: none; padding: 0; margin: 0; }
+      .contacts a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; }
+      .contacts small { color: var(--muted); }
+      .empty { color: var(--muted); font-size: 14px; margin: 0; }
+      .small { font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin-top: 16px; }
+      @media (max-width: 520px) { .rows li { grid-template-columns: 1fr; gap: 0; } }
+    </style>
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="treebox" aria-label="サイトの探索木">
+        <header><span>search tree · depth 2</span><span>visiting <b id="visiting">root</b></span></header>
+        <div id="tree"></div>
+      </aside>
+      <main class="content" id="content"></main>
+    </div>
+
+    <script src="profile-data.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+    <script>
+      const P = window.PROFILE, esc = window.esc;
+      const contacts = [...P.contacts].sort((a, b) => (b.primary ? 1 : 0) - (a.primary ? 1 : 0));
+
+      // 木のデータ。id は本文側の要素 id と一致させる
+      const data = {
+        id: 'root', name: P.fullNameJa,
+        children: [
+          { id: 'fields', name: '専門領域', children: P.fieldGroups.map((g, i) => ({ id: `field-${i}`, name: g.label })) },
+          { id: 'projects', name: '個人開発', children: P.projects.map((p) => ({ id: `project-${p.id}`, name: p.name })) },
+          { id: 'career', name: '経歴', children: [{ id: 'career-work', name: '職歴' }, { id: 'career-edu', name: '学歴' }] },
+          { id: 'posts', name: '記事', children: [{ id: 'posts-none', name: '(0 件)', pruned: true }] },
+          { id: 'contact', name: '連絡先', children: contacts.map((c) => ({ id: `contact-${c.id}`, name: c.label })) },
+        ],
+      };
+
+      const crumb = (...xs) => `<p class="path" aria-hidden="true">${['root', ...xs].map((x, i, a) => (i === a.length - 1 ? `<b>${x}</b>` : x)).join(' → ')}</p>`;
+      document.getElementById('content').innerHTML = `
+        <section id="root" data-node="root">
+          ${crumb()}
+          <h1>${esc(P.fullNameJa)}</h1>
+          <p class="en" lang="en">${esc(P.fullName)}</p>
+          <p class="role">${esc(P.title)}<span>${esc(P.domain)}</span></p>
+          <p class="intro">${esc(P.intro)}</p>
+        </section>
+        <section id="fields" data-node="fields" aria-labelledby="h-fields">
+          ${crumb('fields')}
+          <h2 id="h-fields">専門領域</h2>
+          ${P.fieldGroups.map((g, i) => `<div class="leaf" id="field-${i}" data-node="field-${i}"><h3>${esc(g.label)}</h3><ul class="chips">${g.items.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>`).join('')}
+          <p class="small">主な使用言語 ${P.languages.join(' / ')}</p>
+        </section>
+        <section id="projects" data-node="projects" aria-labelledby="h-projects">
+          ${crumb('projects')}
+          <h2 id="h-projects">個人開発</h2>
+          ${P.projects.map((p) => `<div class="leaf" id="project-${p.id}" data-node="project-${p.id}"><h3><a href="${p.href}">${esc(p.name)}</a></h3><p>${esc(p.description)}</p><p class="stack">${p.stack.map(esc).join(' · ')}${p.repo ? ` · <a href="${p.repo}">source</a>` : ''}</p></div>`).join('')}
+        </section>
+        <section id="career" data-node="career" aria-labelledby="h-career">
+          ${crumb('career')}
+          <h2 id="h-career">経歴</h2>
+          <div class="leaf" id="career-work" data-node="career-work"><ul class="rows">${P.career.map((c) => `<li><time>${c.from} — <span class="now">${c.to}</span></time><span>${esc(c.company)} / ${esc(c.role)}</span></li>`).join('')}</ul></div>
+          <div class="leaf" id="career-edu" data-node="career-edu"><ul class="rows">${P.education.map((e) => `<li><time>${e.year}</time><span>${esc(e.school)} ${esc(e.status)}</span></li>`).join('')}</ul></div>
+          <p class="small">最終更新 ${P.updatedAt}</p>
+        </section>
+        <section id="posts" data-node="posts" aria-labelledby="h-posts">
+          ${crumb('posts')}
+          <h2 id="h-posts">記事</h2>
+          <p class="empty">公開記事はまだありません。公開すると枝が伸びて、ここに新しい順で並びます。</p>
+        </section>
+        <section id="contact" data-node="contact" aria-labelledby="h-contact">
+          ${crumb('contact')}
+          <h2 id="h-contact">連絡先</h2>
+          <ul class="contacts">${contacts.map((c) => `<li id="contact-${c.id}" data-node="contact-${c.id}"><a href="${c.href}" rel="me noopener">${esc(c.label)} <small>${esc(c.role)}</small></a></li>`).join('')}</ul>
+        </section>`;
+
+      // ---- 木の描画(横向きの tidy tree)----
+      const root = d3.hierarchy(data);
+      const box = document.getElementById('tree');
+      let nodeSel, linkSel;
+      function draw() {
+        const w = Math.max(box.clientWidth, 460);
+        const leaves = root.leaves().length;
+        // lg では枠の高さいっぱいに広げる。狭い画面は葉の数から決める
+        const h = Math.max(leaves * 26 + 60, innerWidth >= 1040 ? box.clientHeight - 8 : 380);
+        d3.tree().size([h - 60, w - (innerWidth >= 1040 ? 260 : 200)])(root);
+        box.innerHTML = '';
+        const svg = d3.select(box).append('svg').attr('width', w).attr('height', h).attr('role', 'img').attr('aria-label', 'セクションの木構造。節点を押すとその項目へ移動します');
+        const g = svg.append('g').attr('transform', 'translate(28,30)');
+        linkSel = g.selectAll('path').data(root.links()).join('path')
+          .attr('class', (d) => `link${d.target.data.pruned ? ' pruned' : ''}`)
+          .attr('d', d3.linkHorizontal().x((d) => d.y).y((d) => d.x));
+        nodeSel = g.selectAll('g.node').data(root.descendants()).join('g')
+          .attr('class', (d) => `node ${d.depth === 0 ? 'root' : d.children ? 'branch' : 'leafnode'}`)
+          .attr('transform', (d) => `translate(${d.y},${d.x})`)
+          .on('click', (_, d) => document.getElementById(d.data.id)?.scrollIntoView({ block: 'center' }));
+        nodeSel.append('circle').attr('r', (d) => (d.depth === 0 ? 6 : d.children ? 4.5 : 3.5));
+        nodeSel.append('text').attr('dy', '0.32em').attr('x', (d) => (d.children ? -10 : 10)).attr('text-anchor', (d) => (d.children ? 'end' : 'start')).text((d) => d.data.name)
+          .attr('x', (d) => (d.depth === 0 ? -8 : d.children ? -10 : 10)).attr('dy', (d) => (d.depth === 0 ? '1.9em' : '0.32em')).attr('text-anchor', (d) => (d.depth === 0 ? 'start' : d.children ? 'end' : 'start'));
+        highlight(current);
+      }
+
+      // 現在地(スクロール位置)までの経路を色付けする
+      let current = 'root';
+      function highlight(id) {
+        current = id;
+        const target = root.descendants().find((d) => d.data.id === id) || root;
+        const path = new Set(target.ancestors().map((d) => d.data.id));
+        nodeSel?.classed('on', (d) => path.has(d.data.id));
+        linkSel?.classed('on', (d) => path.has(d.target.data.id));
+        document.querySelectorAll('.leaf').forEach((el) => el.classList.toggle('on', el.id === id));
+        document.getElementById('visiting').textContent = target.ancestors().reverse().map((d) => d.data.name).join(' / ');
+      }
+      const watched = [...document.querySelectorAll('[data-node]')];
+      function onScroll() {
+        const y = innerHeight * 0.4;
+        let best = 'root';
+        for (const el of watched) { const r = el.getBoundingClientRect(); if (r.top <= y && r.bottom > 0) best = el.dataset.node; }
+        if (best !== current) highlight(best);
+      }
+      addEventListener('scroll', onScroll, { passive: true });
+      addEventListener('resize', draw);
+      draw();
+      onScroll();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>08 焼きなまし — hirotoyoshihara.dev</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500;700&family=Azeret+Mono:wght@400;500&display=swap"
+    />
+    <style>
+      /* レイアウト: 冒頭は「左に氏名、右に巡回セールスマン問題を焼きなまし法で解いている様子」。
+         温度 T が下がるにつれて経路の色が熱い橙から冷えた青緑へ変わり、ほどけた巡回路に落ち着く。
+         以降は 3 カラム(専門領域 / 個人開発 / 経歴)の仕様書風。押すと再加熱 */
+      :root {
+        --bg: #f5f6f7;
+        --surface: #ffffff;
+        --ink: #15191d;
+        --muted: #5f6872;
+        --line: rgb(21 25 29 / 0.12);
+        --hot: #e8590c;
+        --cold: #0b7285;
+        --font-body: 'IBM Plex Sans JP', 'Hiragino Sans', 'Yu Gothic UI', sans-serif;
+        --font-mono: 'Azeret Mono', ui-monospace, Menlo, monospace;
+        color-scheme: light;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) {
+          --bg: #0f1215; --surface: #161a1f; --ink: #e7eaee; --muted: #949ea8; --line: rgb(231 234 238 / 0.12); --hot: #ff8a3d; --cold: #3bc9db; color-scheme: dark;
+        }
+      }
+      :root[data-theme='dark'] {
+        --bg: #0f1215; --surface: #161a1f; --ink: #e7eaee; --muted: #949ea8; --line: rgb(231 234 238 / 0.12); --hot: #ff8a3d; --cold: #3bc9db; color-scheme: dark;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); line-height: 1.75; letter-spacing: 0.02em; }
+      a { color: inherit; text-decoration-color: var(--line); text-underline-offset: 4px; }
+      a:hover { color: var(--cold); text-decoration-color: currentColor; }
+      a:focus-visible, button:focus-visible { outline: 2px solid var(--cold); outline-offset: 2px; }
+      .wrap { max-width: 74rem; margin: 0 auto; padding-inline: 16px; }
+      @media (min-width: 900px) { .wrap { padding-inline: 40px; } }
+      nav.top { display: flex; justify-content: space-between; gap: 16px; padding-block: 18px; font-size: 13px; }
+      nav.top .links { display: flex; gap: 20px; }
+      nav.top .links a { text-decoration: none; color: var(--muted); }
+      .site { font-family: var(--font-mono); font-size: 12px; }
+
+      .hero { display: grid; gap: 24px; padding-block: 24px 40px; align-items: center; }
+      @media (min-width: 900px) { .hero { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 48px; padding-block: 40px 64px; } }
+      h1 { font-size: clamp(44px, 7vw, 76px); line-height: 1.05; margin: 0; letter-spacing: -0.01em; font-weight: 700; }
+      .en { font-family: var(--font-mono); color: var(--muted); font-size: 13px; margin: 12px 0 0; }
+      .role { margin: 28px 0 0; font-size: 18px; font-weight: 500; line-height: 1.5; }
+      .role span { display: block; color: var(--muted); font-weight: 400; font-size: 16px; }
+      .intro { margin: 16px 0 0; color: var(--muted); font-size: 15px; max-width: 32em; }
+      .contacts { list-style: none; padding: 0; margin: 24px 0 0; display: flex; flex-wrap: wrap; gap: 4px 20px; font-size: 14px; }
+      .contacts a { display: inline-flex; min-height: 44px; align-items: center; gap: 6px; }
+      .contacts small { color: var(--muted); }
+
+      .lab { position: relative; background: var(--surface); border: 1px solid var(--line); }
+      #tsp { display: block; width: 100%; aspect-ratio: 4 / 3; max-width: 100%; }
+      .lab .hud { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 16px; padding: 10px 14px; border-top: 1px solid var(--line); font-family: var(--font-mono); font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+      .lab .hud b { color: var(--ink); font-weight: 500; }
+      .thermo { flex: 1 1 120px; height: 4px; background: linear-gradient(to right, var(--cold), var(--hot)); position: relative; border-radius: 2px; min-width: 80px; }
+      .thermo i { position: absolute; top: -4px; width: 2px; height: 12px; background: var(--ink); left: 100%; }
+      button { font: inherit; font-size: 11px; color: var(--ink); background: transparent; border: 1px solid var(--line); padding: 6px 10px; cursor: pointer; min-height: 32px; }
+      button:hover { border-color: var(--hot); color: var(--hot); }
+
+      .cols { display: grid; gap: 40px; border-top: 1px solid var(--line); padding-block: 40px 80px; }
+      @media (min-width: 900px) { .cols { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px; } }
+      .cols > section { min-width: 0; }
+      h2 { font-size: 13px; font-weight: 500; margin: 0 0 18px; color: var(--muted); display: flex; justify-content: space-between; font-family: var(--font-mono); letter-spacing: 0.04em; }
+      h2 span { font-family: var(--font-body); color: var(--ink); font-weight: 700; font-size: 16px; }
+      dl { margin: 0; display: grid; gap: 14px; }
+      dt { font-weight: 700; font-size: 15px; }
+      dd { margin: 2px 0 0; color: var(--muted); font-size: 14px; }
+      .projects { list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; }
+      .projects h3 { margin: 0; font-size: 16px; display: flex; justify-content: space-between; gap: 8px; }
+      .projects h3 small { font-family: var(--font-mono); font-size: 11px; font-weight: 400; }
+      .projects p { margin: 2px 0 0; font-size: 14px; color: var(--muted); }
+      .tags { font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin-top: 4px; }
+      .rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; font-size: 15px; }
+      .rows time { display: block; font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+      .now { color: var(--hot); }
+      .sub { margin: 28px 0 10px; }
+      .muted { color: var(--muted); font-size: 13px; }
+      footer { border-top: 1px solid var(--line); padding-block: 20px 32px; font-family: var(--font-mono); font-size: 11px; color: var(--muted); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap" id="page"></div>
+    <script src="profile-data.js"></script>
+    <script>
+      const P = window.PROFILE, esc = window.esc;
+      const contacts = [...P.contacts].sort((a, b) => (b.primary ? 1 : 0) - (a.primary ? 1 : 0));
+      document.getElementById('page').innerHTML = `
+        <nav class="top" aria-label="サイト"><span class="site">${esc(P.siteName)}</span><span class="links"><a href="#cols">プロフィール</a><a href="#posts">記事</a></span></nav>
+        <header class="hero">
+          <div>
+            <h1>${esc(P.fullNameJa)}</h1>
+            <p class="en" lang="en">${esc(P.fullName)}</p>
+            <p class="role">${esc(P.title)}<span>${esc(P.domain)}</span></p>
+            <p class="intro">${esc(P.intro)}</p>
+            <ul class="contacts" aria-label="連絡先">${contacts.map((c) => `<li><a href="${c.href}" rel="me noopener">${esc(c.label)}<small>${esc(c.role)}</small></a></li>`).join('')}</ul>
+          </div>
+          <figure class="lab" style="margin:0">
+            <canvas id="tsp" aria-label="60 都市の巡回セールスマン問題を焼きなまし法で解いている様子" role="img"></canvas>
+            <figcaption class="hud">
+              <span>T = <b id="t">—</b></span>
+              <span class="thermo" aria-hidden="true"><i id="ti"></i></span>
+              <span>len = <b id="len">—</b></span>
+              <button type="button" id="reheat">再加熱</button>
+            </figcaption>
+          </figure>
+        </header>
+        <div class="cols" id="cols">
+          <section aria-labelledby="h-f">
+            <h2 id="h-f"><span>専門領域</span>fields</h2>
+            <dl>${P.fieldGroups.map((g) => `<div><dt>${esc(g.label)}</dt><dd>${g.items.map(esc).join('、')}</dd></div>`).join('')}</dl>
+            <p class="muted" style="margin-top:16px">主な使用言語 ${P.languages.join(' / ')}</p>
+          </section>
+          <section aria-labelledby="h-p">
+            <h2 id="h-p"><span>個人開発</span>projects</h2>
+            <ul class="projects">${P.projects.map((p) => `<li><h3><a href="${p.href}">${esc(p.name)}</a>${p.repo ? `<small><a href="${p.repo}">src</a></small>` : ''}</h3><p>${esc(p.description)}</p><div class="tags">${p.stack.map(esc).join(' · ')}</div></li>`).join('')}</ul>
+          </section>
+          <section aria-labelledby="h-c">
+            <h2 id="h-c"><span>経歴</span>career</h2>
+            <ul class="rows">${P.career.map((c) => `<li><time>${c.from} — <span class="now">${c.to}</span></time>${esc(c.company)} / ${esc(c.role)}</li>`).join('')}</ul>
+            <ul class="rows sub">${P.education.map((e) => `<li><time>${e.year}</time>${esc(e.school)} ${esc(e.status)}</li>`).join('')}</ul>
+            <h2 id="posts" style="margin-top:40px"><span>記事</span>posts</h2>
+            <p class="muted" style="margin:0">公開した記事はここに並びます(現在 0 件)。</p>
+          </section>
+        </div>
+        <footer><span>${esc(P.fullName)}</span><span>最終更新 ${P.updatedAt}</span></footer>`;
+
+      // ---- 焼きなまし法(2-opt 近傍)----
+      const N = 60;
+      const rnd = window.seeded(2025);
+      const cities = Array.from({ length: N }, () => [0.06 + rnd() * 0.88, 0.08 + rnd() * 0.84]);
+      const dist = (a, b) => Math.hypot(cities[a][0] - cities[b][0], cities[a][1] - cities[b][1]);
+      let tour, T, len;
+      const T0 = 0.5, Tend = 0.0004, COOL = 0.993;
+      const tourLen = () => tour.reduce((s, c, i) => s + dist(c, tour[(i + 1) % N]), 0);
+      function reheat() {
+        tour = [...Array(N).keys()];
+        for (let i = N - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [tour[i], tour[j]] = [tour[j], tour[i]]; }
+        T = T0; len = tourLen();
+      }
+      function anneal(iters) {
+        for (let k = 0; k < iters; k++) {
+          let i = 1 + Math.floor(rnd() * (N - 1)), j = 1 + Math.floor(rnd() * (N - 1));
+          if (i === j) continue;
+          if (i > j) [i, j] = [j, i];
+          const a = tour[i - 1], b = tour[i], c = tour[j], d = tour[(j + 1) % N];
+          const delta = dist(a, c) + dist(b, d) - dist(a, b) - dist(c, d);
+          if (delta < 0 || rnd() < Math.exp(-delta / T)) {
+            for (let l = i, r = j; l < r; l++, r--) [tour[l], tour[r]] = [tour[r], tour[l]];
+            len += delta;
+          }
+        }
+        T = Math.max(Tend, T * COOL);
+      }
+
+      const cv = document.getElementById('tsp');
+      const ctx = cv.getContext('2d');
+      const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+      const hex = (h) => { const m = h.replace('#', ''); return [0, 2, 4].map((i) => parseInt(m.slice(i, i + 2), 16)); };
+      function draw() {
+        const dpr = Math.min(devicePixelRatio || 1, 2);
+        const w = cv.clientWidth, h = cv.clientHeight;
+        if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, w, h);
+        // 温度の対数で色を補間(熱い = 橙、冷えた = 青緑)
+        const heat = Math.min(1, Math.max(0, Math.log(T / Tend) / Math.log(T0 / Tend)));
+        const [h1, h2] = [hex(css('--hot')), hex(css('--cold'))];
+        const col = h2.map((v, i) => Math.round(v + (h1[i] - v) * heat));
+        const X = (p) => p[0] * w, Y = (p) => p[1] * h;
+        ctx.strokeStyle = `rgb(${col.join(' ')})`;
+        ctx.lineWidth = 1.2 + (1 - heat) * 0.8;
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        tour.forEach((c, i) => (i ? ctx.lineTo(X(cities[c]), Y(cities[c])) : ctx.moveTo(X(cities[c]), Y(cities[c]))));
+        ctx.closePath();
+        ctx.globalAlpha = 0.35 + (1 - heat) * 0.65;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = css('--ink');
+        cities.forEach((p) => { ctx.beginPath(); ctx.arc(X(p), Y(p), 2.4, 0, Math.PI * 2); ctx.fill(); });
+        document.getElementById('t').textContent = T.toExponential(2);
+        document.getElementById('len').textContent = len.toFixed(3);
+        document.getElementById('ti').style.left = `${heat * 100}%`;
+      }
+      const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      reheat();
+      if (reduce) { while (T > Tend * 1.01) anneal(400); } // 動きを減らす設定では冷え切った結果だけを出す
+      let visible = true;
+      new IntersectionObserver(([e]) => (visible = e.isIntersecting)).observe(cv);
+      (function loop() {
+        if (visible && T > Tend * 1.01 && !reduce) anneal(400);
+        if (visible) draw();
+        requestAnimationFrame(loop);
+      })();
+      document.getElementById('reheat').addEventListener('click', () => { reheat(); if (reduce) while (T > Tend * 1.01) anneal(400); });
+    </script>
+  </body>
+</html>

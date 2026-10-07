@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>hirotoyoshihara.dev UI候補</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    />
+    <style>
+      /* レイアウト: 比較用のツール画面。左に候補の一覧(特徴・ライブラリ・長所短所)、右に実寸を縮小したプレビュー。
+         上部のツールバーで 1 案ずつ / 一覧、デスクトップ幅 / スマホ幅、テーマを切り替える */
+      :root {
+        --bg: #eceef1;
+        --panel: #ffffff;
+        --ink: #1a1d21;
+        --muted: #5e6670;
+        --line: rgb(26 29 33 / 0.12);
+        --accent: #1a56b0;
+        --accent-soft: rgb(26 86 176 / 0.08);
+        --star: #c98a00;
+        --good: #2f7d3b;
+        --warn: #a3501b;
+        --font: 'IBM Plex Sans JP', 'Hiragino Sans', 'Yu Gothic UI', sans-serif;
+        --mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+        color-scheme: light;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) {
+          --bg: #0f1114; --panel: #171a1e; --ink: #e6e8eb; --muted: #98a0aa; --line: rgb(230 232 235 / 0.12);
+          --accent: #7aa9e8; --accent-soft: rgb(122 169 232 / 0.1); --star: #f0b429; --good: #7fcf8b; --warn: #f0995a; color-scheme: dark;
+        }
+      }
+      :root[data-theme='dark'] {
+        --bg: #0f1114; --panel: #171a1e; --ink: #e6e8eb; --muted: #98a0aa; --line: rgb(230 232 235 / 0.12);
+        --accent: #7aa9e8; --accent-soft: rgb(122 169 232 / 0.1); --star: #f0b429; --good: #7fcf8b; --warn: #f0995a; color-scheme: dark;
+      }
+      * { box-sizing: border-box; }
+      [hidden] { display: none !important; }
+      html, body { height: 100%; }
+      body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 14px; line-height: 1.6; display: flex; flex-direction: column; }
+      button, select { font: inherit; color: inherit; }
+      a { color: var(--accent); }
+      :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+      .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+      .toolbar h1 { font-size: 15px; margin: 0 auto 0 0; font-weight: 700; display: flex; gap: 10px; align-items: baseline; }
+      .toolbar h1 span { font-family: var(--mono); font-size: 12px; font-weight: 400; color: var(--muted); }
+      .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+      .seg button { border: 0; background: transparent; padding: 6px 12px; cursor: pointer; font-size: 12.5px; color: var(--muted); min-height: 32px; }
+      .seg button + button { border-left: 1px solid var(--line); }
+      .seg button[aria-pressed='true'] { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
+      .ctl { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+
+      .app { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); }
+      @media (min-width: 1000px) { .app { grid-template-columns: 22rem minmax(0, 1fr); } }
+      .list { overflow-y: auto; border-right: 1px solid var(--line); background: var(--panel); padding: 8px; display: grid; gap: 4px; align-content: start; }
+      @media (max-width: 999px) { .list { display: flex; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); } .list .card { flex: 0 0 15rem; } .list .detail { display: none; } }
+      .card { text-align: left; background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 10px 12px; cursor: pointer; display: grid; gap: 4px; position: relative; }
+      .card:hover { background: var(--accent-soft); }
+      .card[aria-current='true'] { border-color: var(--accent); background: var(--accent-soft); }
+      .card .head { display: flex; align-items: baseline; gap: 8px; }
+      .card .no { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+      .card .name { font-weight: 700; font-size: 15px; }
+      .card .theme { margin-left: auto; font-family: var(--mono); font-size: 10.5px; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
+      .card .tagline { color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+      .star { position: absolute; right: 8px; bottom: 6px; border: 0; background: transparent; cursor: pointer; font-size: 16px; color: var(--muted); padding: 4px 6px; line-height: 1; }
+      .star[aria-pressed='true'] { color: var(--star); }
+
+      .stage { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+      .info { background: var(--panel); border-bottom: 1px solid var(--line); padding: 14px 20px; display: grid; gap: 10px 32px; grid-template-columns: minmax(0, 1fr); }
+      @media (min-width: 1200px) { .info { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr); } }
+      .info h2 { margin: 0; font-size: 18px; display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+      .info h2 a { font-size: 12px; font-weight: 400; }
+      .info p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+      .info h3 { margin: 0 0 4px; font-size: 11px; font-family: var(--mono); color: var(--muted); font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; }
+      .info ul { margin: 0; padding-left: 1.1em; font-size: 13px; }
+      .info li::marker { color: var(--muted); }
+      .pros li::marker { color: var(--good); content: '+  '; }
+      .cons li::marker { color: var(--warn); content: '−  '; }
+      .libs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+      .libs span { font-family: var(--mono); font-size: 11px; border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; }
+      .cost { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+      .cost b { color: var(--ink); font-weight: 500; }
+
+      .viewport { flex: 1; min-height: 360px; overflow: auto; padding: 20px; display: flex; justify-content: center; align-items: flex-start; }
+      .device { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; box-shadow: 0 8px 30px rgb(0 0 0 / 0.08); flex: none; }
+      .device.phone { border-radius: 28px; border-width: 8px; border-color: var(--ink); }
+      .device iframe { border: 0; display: block; transform-origin: 0 0; background: var(--panel); }
+
+      .grid { flex: 1; overflow: auto; padding: 20px; display: grid; gap: 20px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr)); align-content: start; }
+      .thumb { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; cursor: pointer; text-align: left; padding: 0; }
+      .thumb:hover { border-color: var(--accent); }
+      .thumb .frame { position: relative; aspect-ratio: 16 / 10; overflow: hidden; max-width: 100%; }
+      .thumb iframe { position: absolute; left: 0; top: 0; border: 0; width: 1440px; height: 900px; transform-origin: 0 0; pointer-events: none; }
+      .thumb .cap { padding: 10px 12px; display: flex; gap: 8px; align-items: baseline; border-top: 1px solid var(--line); }
+      .thumb .cap b { font-size: 14px; }
+      .thumb .cap span { color: var(--muted); font-size: 12px; }
+      .thumb .cap .s { margin-left: auto; color: var(--star); }
+    </style>
+  </head>
+  <body>
+    <header class="toolbar">
+      <h1>UI 候補の比較 <span>hirotoyoshihara.dev</span></h1>
+      <div class="ctl">表示
+        <div class="seg" role="group" aria-label="表示">
+          <button type="button" id="m-single" aria-pressed="true">1 案ずつ</button>
+          <button type="button" id="m-grid" aria-pressed="false">一覧</button>
+        </div>
+      </div>
+      <div class="ctl">幅
+        <div class="seg" role="group" aria-label="画面幅">
+          <button type="button" id="w-desk" aria-pressed="true">デスクトップ</button>
+          <button type="button" id="w-phone" aria-pressed="false">スマホ</button>
+        </div>
+      </div>
+      <div class="ctl">テーマ
+        <div class="seg" role="group" aria-label="テーマ">
+          <button type="button" data-theme-btn="system" aria-pressed="true">システム</button>
+          <button type="button" data-theme-btn="light" aria-pressed="false">ライト</button>
+          <button type="button" data-theme-btn="dark" aria-pressed="false">ダーク</button>
+        </div>
+      </div>
+    </header>
+    <div class="app">
+      <nav class="list" id="list" aria-label="候補"></nav>
+      <div class="stage" id="stage">
+        <section class="info" id="info" aria-live="polite"></section>
+        <div class="viewport" id="viewport"><div class="device" id="device"><iframe id="frame" title="候補のプレビュー"></iframe></div></div>
+        <div class="grid" id="grid" hidden></div>
+      </div>
+    </div>
+
+    <script>
+      const C = [
+        {
+          id: '01', file: 'candidates/01-descent.html', name: '勾配降下', theme: 'light/dark',
+          tagline: '画面全体が損失曲面の等高線図。スクロールするほど SGD の点が谷へ降りる。',
+          concept: '大学院の研究(SGD などの確率的最適化)をそのままサイトの操作に重ねた案。スクロール量を反復回数に対応させ、読み終えるころに大域最小 θ* へ着く。途中で局所解に寄ってから抜け出す系列を選んでいるので、ノイズのある最適化らしさが出る。',
+          libs: ['d3-contour (d3 v7)', 'Canvas 2D'],
+          pros: ['研究テーマが一目で伝わる、ほかに無い見た目', 'スクロールと連動するので「読む」体験そのものが演出になる', '本文は半透明の紙面に載せるので読みやすさは保てる'],
+          cons: ['等高線を常に描くぶん、低スペック端末では少し重い', 'スマホでは地形が背景に回り、演出が弱まる'],
+          cost: '中:等高線はビルド時に SVG 化もできる。Astro では島(client:idle)1 つで済む',
+        },
+        {
+          id: '02', file: 'candidates/02-surface.html', name: '損失曲面', theme: 'dark',
+          tagline: 'Three.js の 3D 曲面を玉がモメンタム SGD で転がる。初期値を変えて何度も試行する。',
+          concept: '冒頭の大きなビジュアルで「最適化の人」だと伝える、ランディングページ寄りの案。玉は外周のランダムな点から出発し、止まると次の試行へ移る。下はダークの 2 カラムで、左の自己紹介と連絡先を sticky にする。',
+          libs: ['three.js r128', 'WebGL'],
+          pros: ['第一印象のインパクトが一番強い', '試行(run)が繰り返されるので、見ていて飽きにくい'],
+          cons: ['three.js が約 600KB(gzip 後で約 150KB)。今の「軽いサイト」の方針とは逆向き', 'ダーク一択で、記事ページとのトーン合わせが必要', 'WebGL が使えない環境の代替表示を用意する必要がある'],
+          cost: '中〜高:ヒーローだけを島にして遅延読み込み。OG 画像は静止画を別に作る',
+        },
+        {
+          id: '03', file: 'candidates/03-paper.html', name: '論文', theme: 'light/dark',
+          tagline: 'プロフィールを 1 本のプレプリントとして組む。Abstract・式 (1)・Algorithm 1・表・References。',
+          concept: '「ドメインの制約と評価基準を定式化する」という仕事を、実際に式 (1) と Algorithm 1 で書いてしまう案。個人開発は Table 1、連絡先は References として引用番号で参照する。研究者・エンジニア向けには内容と形式が一致する。',
+          libs: ['MathJax 3 (SVG)', '※本番は KaTeX をビルド時に'],
+          pros: ['経歴・肩書きと見た目の説得力が一番噛み合う', 'JS がほぼ不要で、読みやすさ・軽さ・印刷のどれも強い', '記事ページ(技術記事)とも自然につながる'],
+          cons: ['遊び心は控えめ。「見たことがある」と感じる人もいる', '内容が少ないと紙面がスカスカに見えやすい'],
+          cost: '低:Astro + rehype-katex で数式は静的に出せる',
+        },
+        {
+          id: '04', file: 'candidates/04-trainlog.html', name: '学習ログ', theme: 'light/dark',
+          tagline: 'ターミナルで学習ジョブを回した出力として組む。設定 YAML → epoch ごとのログ → 損失曲線。',
+          concept: '全文等幅(和文は BIZ UDゴシック)で、プロフィールを config YAML、各セクションを epoch として出力する。右に train/loss の曲線、下に tmux 風のステータスバー。',
+          libs: ['なし(SVG を手書き)'],
+          pros: ['エンジニアには一瞬で伝わる、親しみのあるネタ', '依存ゼロで軽い', '記事一覧も「ログ」として並べやすい'],
+          cons: ['エンジニア以外にはネタが伝わりにくい', '「ターミナル風ポートフォリオ」自体はよくある型'],
+          cost: '低:静的に書ける。曲線は CSS アニメーションだけ',
+        },
+        {
+          id: '05', file: 'candidates/05-search-tree.html', name: '探索木', theme: 'light/dark',
+          tagline: 'サイト全体を 1 本の探索木として見せる。スクロール位置までの経路が色付く。',
+          concept: '根 = 本人、枝 = セクション、葉 = 項目。左に d3.tree の木を固定し、スクロールに合わせて「現在の探索経路」をハイライトする。節点を押すとその項目へ移動する目次にもなる。記事が 0 件の枝は点線(枝刈り)で出す。',
+          libs: ['d3-hierarchy (d3 v7)', 'SVG'],
+          pros: ['目次とビジュアルを兼ねるので、情報の見通しが良い', '組合せ探索・制約充足の専門と結びつく', '項目が増えるほど木が育って見える'],
+          cons: ['スマホでは木を横スクロールで見ることになる', '木の形が単調になりやすい(深さ 2)'],
+          cost: '中:木はビルド時に SVG を出し、ハイライトだけ JS',
+        },
+        {
+          id: '06', file: 'candidates/06-poster.html', name: 'ポスター', theme: 'light/dark',
+          tagline: '経歴の文脈から離れた、純粋な文字組み。巨大な明朝の氏名と非対称の 12 カラム。',
+          concept: '方眼もアルゴリズムの比喩も使わず、文字の大きさと余白だけで階層を作る案。氏名は 2 行に分けて左右にずらし、欧文名は縦に添える。個人開発は大きな欧文の行で並べ、ホバーで群青に。',
+          libs: ['なし', 'Archivo(可変幅)+ Zen Old Mincho'],
+          pros: ['流行や分野に左右されず長く使える', 'JS ゼロ・軽い・保守しやすい', '名前を覚えてもらいやすい'],
+          cons: ['「何の専門家か」は文章を読まないと分からない', '和文の巨大明朝は Web フォントの容量が大きい(サブセット化が必要)'],
+          cost: '低:CSS だけ。フォントのサブセット化は要対応',
+        },
+        {
+          id: '07', file: 'candidates/07-tategaki.html', name: '縦組み', theme: 'light/dark',
+          tagline: '本文を縦組みで右から左へ読む紙面に。数字は漢数字、略語は正立、落款付き。',
+          concept: 'Web ではめったに見ない縦組みで、和文の美しさを前面に出す案。横長の画面ではホイールを横送りに変換し、スマホ幅では横組みに切り替える。AI・LLM・RAG のような略語は正立させて読みやすくする。',
+          libs: ['なし(CSS writing-mode)'],
+          pros: ['圧倒的に印象に残る。日本語サイトとしての個性が強い', 'JS はホイール変換だけ'],
+          cons: ['横スクロールに慣れていない人は戸惑う', '欧文・コード・数字が多い技術記事とは相性が悪い', '英語版(/en/)とはデザインを分ける必要がある'],
+          cost: '中:トップだけ縦組みにし、記事は横組みのままが現実的',
+        },
+        {
+          id: '08', file: 'candidates/08-annealing.html', name: '焼きなまし', theme: 'light/dark',
+          tagline: '60 都市の巡回セールスマン問題を焼きなまし法で解く様子を冒頭に置く。冷えるほど色が変わる。',
+          concept: '組合せ最適化をライブで見せる案。温度 T が下がるにつれて経路が橙から青緑へ冷え、交差がほどけた巡回路に落ち着く。「再加熱」で何度でもやり直せる。下は 3 カラムの仕様書風で、情報量は今のサイトと同程度。',
+          libs: ['なし(Canvas 2D・2-opt)'],
+          pros: ['動きが「最適化している」と直感的に分かる', '依存ゼロで軽い。冒頭の箱以外は普通のレイアウトなので読みやすい', 'algoviz(個人開発)への導線にもなる'],
+          cons: ['冒頭の 1 箱に頼るので、全体の個性は中くらい'],
+          cost: '低〜中:Canvas の島 1 つ',
+        },
+      ];
+
+      const $ = (s) => document.querySelector(s);
+      const store = {
+        get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+        set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+      };
+      let current = C.find((c) => c.id === location.hash.slice(1)) ? location.hash.slice(1) : store.get('ui-current', '01');
+      let width = store.get('ui-width', 'desk');
+      let mode = 'single';
+      let theme = 'system';
+      let stars = store.get('ui-stars', {});
+
+      function renderList() {
+        $('#list').innerHTML = C.map((c) => `
+          <div class="card" role="button" tabindex="0" data-id="${c.id}" aria-current="${c.id === current}">
+            <span class="head"><span class="no">${c.id}</span><span class="name">${c.name}</span><span class="theme">${c.theme}</span></span>
+            <span class="tagline">${c.tagline}</span>
+            <button type="button" class="star" data-star="${c.id}" aria-pressed="${!!stars[c.id]}" aria-label="${c.name}を気に入りに">★</button>
+          </div>`).join('');
+      }
+      function renderInfo() {
+        const c = C.find((x) => x.id === current);
+        $('#info').innerHTML = `
+          <div>
+            <h2>${c.id} ${c.name} <a href="${c.file}" target="_blank" rel="noopener">単体で開く ↗</a></h2>
+            <p>${c.concept}</p>
+            <div class="libs">${c.libs.map((l) => `<span>${l}</span>`).join('')}</div>
+          </div>
+          <div><h3>良いところ</h3><ul class="pros">${c.pros.map((x) => `<li>${x}</li>`).join('')}</ul></div>
+          <div><h3>気になるところ</h3><ul class="cons">${c.cons.map((x) => `<li>${x}</li>`).join('')}</ul><p class="cost">移植コスト <b>${c.cost}</b></p></div>`;
+      }
+      function applyThemeTo(frame) {
+        // 同一オリジンなら直接、file:// のように触れない場合は候補側の受信処理(profile-data.js)へメッセージで渡す
+        try {
+          const root = frame.contentDocument?.documentElement;
+          if (root) theme === 'system' ? root.removeAttribute('data-theme') : root.setAttribute('data-theme', theme);
+        } catch {}
+        frame.contentWindow?.postMessage({ type: 'ui-theme', theme }, '*');
+      }
+      function fit() {
+        const vp = $('#viewport'), dev = $('#device'), fr = $('#frame');
+        const phone = width === 'phone';
+        const vw = phone ? 390 : 1440, vh = phone ? 844 : 900;
+        const availW = vp.clientWidth - 40 - (phone ? 16 : 2);
+        const availH = Math.max(320, vp.clientHeight - 40 - (phone ? 16 : 2));
+        const s = Math.min(1, availW / vw, phone ? availH / vh : 1);
+        // デスクトップ幅では、見えている高さぶんをそのまま iframe の画面の高さにする(下端の固定要素も見えるように)
+        const h = phone ? vh : availH / s;
+        fr.style.width = `${vw}px`;
+        fr.style.height = `${h}px`;
+        fr.style.transform = `scale(${s})`;
+        dev.style.width = `${vw * s + (phone ? 16 : 2)}px`;
+        dev.style.height = `${h * s + (phone ? 16 : 2)}px`;
+        dev.classList.toggle('phone', phone);
+      }
+      function load() {
+        const c = C.find((x) => x.id === current);
+        const fr = $('#frame');
+        if (fr.getAttribute('src') !== c.file) fr.setAttribute('src', c.file);
+        fr.title = `${c.name}のプレビュー`;
+        renderList(); renderInfo(); fit();
+        store.set('ui-current', current);
+      }
+      function renderGrid() {
+        $('#grid').innerHTML = C.map((c) => `
+          <button type="button" class="thumb" data-open="${c.id}">
+            <span class="frame"><iframe src="${c.file}" loading="lazy" tabindex="-1" title="${c.name}" aria-hidden="true"></iframe></span>
+            <span class="cap"><b>${c.id} ${c.name}</b><span>${c.theme}</span>${stars[c.id] ? '<span class="s">★</span>' : ''}</span>
+          </button>`).join('');
+        const scaleThumbs = () => document.querySelectorAll('.thumb .frame').forEach((f) => { f.querySelector('iframe').style.transform = `scale(${f.clientWidth / 1440})`; });
+        scaleThumbs();
+        document.querySelectorAll('.thumb iframe').forEach((f) => f.addEventListener('load', () => applyThemeTo(f)));
+        window.onresize = () => { scaleThumbs(); fit(); };
+      }
+      function setMode(m) {
+        mode = m;
+        $('#m-single').setAttribute('aria-pressed', m === 'single');
+        $('#m-grid').setAttribute('aria-pressed', m === 'grid');
+        $('#viewport').hidden = m !== 'single';
+        $('#info').hidden = m !== 'single';
+        $('#grid').hidden = m !== 'grid';
+        if (m === 'grid') renderGrid(); else { $('#grid').innerHTML = ''; fit(); }
+      }
+
+      $('#list').addEventListener('click', (e) => {
+        const s = e.target.closest('[data-star]');
+        if (s) { stars[s.dataset.star] = !stars[s.dataset.star]; store.set('ui-stars', stars); renderList(); return; }
+        const card = e.target.closest('[data-id]');
+        if (card) { current = card.dataset.id; if (mode !== 'single') setMode('single'); load(); }
+      });
+      $('#list').addEventListener('keydown', (e) => {
+        const card = e.target.closest('[data-id]');
+        if (card && (e.key === 'Enter' || e.key === ' ') && !e.target.closest('[data-star]')) { e.preventDefault(); card.click(); }
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          const i = C.findIndex((c) => c.id === current) + (e.key === 'ArrowDown' ? 1 : -1);
+          if (C[i]) { e.preventDefault(); current = C[i].id; load(); document.querySelector(`[data-id="${current}"]`)?.focus(); }
+        }
+      });
+      $('#grid').addEventListener('click', (e) => { const t = e.target.closest('[data-open]'); if (t) { current = t.dataset.open; setMode('single'); load(); } });
+      $('#m-single').onclick = () => setMode('single');
+      $('#m-grid').onclick = () => setMode('grid');
+      $('#w-desk').onclick = () => { width = 'desk'; store.set('ui-width', width); syncWidth(); };
+      $('#w-phone').onclick = () => { width = 'phone'; store.set('ui-width', width); syncWidth(); };
+      function syncWidth() { $('#w-desk').setAttribute('aria-pressed', width === 'desk'); $('#w-phone').setAttribute('aria-pressed', width === 'phone'); fit(); }
+      document.querySelectorAll('[data-theme-btn]').forEach((b) => b.addEventListener('click', () => {
+        theme = b.dataset.themeBtn;
+        document.querySelectorAll('[data-theme-btn]').forEach((x) => x.setAttribute('aria-pressed', x === b));
+        theme === 'system' ? document.documentElement.removeAttribute('data-theme') : document.documentElement.setAttribute('data-theme', theme);
+        document.querySelectorAll('iframe').forEach(applyThemeTo);
+      }));
+      $('#frame').addEventListener('load', () => applyThemeTo($('#frame')));
+      window.onresize = fit;
+      syncWidth();
+      load();
+    </script>
+  </body>
+</html>
