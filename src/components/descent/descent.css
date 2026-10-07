@@ -1,0 +1,697 @@
+/* ============================================================
+   トップページ「降下ログ」(DescentHome.astro)。
+   損失曲面の等高線と SGD の軌跡を画面全体の背景に固定し、本文(学習ログ)をその上に重ねる。
+   PC は軌跡を本文の右の空きに収め、狭い画面は本文の後ろに通す(薄い紙のベールで読みやすさを保つ)。
+   色は global.css の図面トークンだけを使う: 等高線 = コバルト、軌跡・現在地・現在の epoch = 朱。
+   ============================================================ */
+
+.descent {
+  --status-h: 2.75rem;
+}
+@media (min-width: 64rem) {
+  .descent {
+    --status-h: 2rem;
+  }
+}
+
+/* ---- 背景の地図 ---- */
+/* トップは等高線が地になるので、ほかのページの方眼は敷かない(線が二重になって等高線が読みにくくなるため) */
+body:has(.descent) {
+  background-image: none;
+}
+.dmap {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+.dmap-svg,
+.dveil,
+.dmap-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.dmap-overlay > * {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+/* 本文の後ろの紙のベール。PC は本文の側だけ濃く、軌跡の側へ向かって消える。
+   --veil-x(本文の右端)はスクリプトが入れる。軌跡を本文の後ろに通すとき(data-fit="full")は全面に薄くかける */
+.dveil {
+  --veil: color-mix(in srgb, var(--color-paper) 72%, transparent);
+  background: linear-gradient(
+    90deg,
+    var(--veil) 0,
+    var(--veil) var(--veil-x, 0px),
+    transparent calc(var(--veil-x, 0px) + 14rem)
+  );
+}
+.descent[data-fit='full'] .dveil {
+  background: color-mix(in srgb, var(--color-paper) 58%, transparent);
+}
+/* 本文の後ろに通すときは、通過点を出さず、現在の点も控えめにする(文字に重なるため) */
+.descent[data-fit='full'] .dmap-mark {
+  display: none;
+}
+.descent[data-fit='full'] .dmap-overlay {
+  opacity: 0.55;
+}
+
+.dmap-level {
+  fill: none;
+  stroke: var(--color-cobalt);
+  stroke-width: 0.6;
+  vector-effect: non-scaling-stroke;
+  opacity: calc(0.15 * (0.4 + var(--depth)));
+}
+.dmap-level.is-major {
+  stroke-width: 1;
+  opacity: calc(0.36 * (0.4 + var(--depth)));
+}
+.dmap-route-todo,
+.dmap-route-done {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.dmap-route-todo {
+  stroke: var(--color-ink-muted);
+  opacity: 0.75;
+}
+.dmap-route-done {
+  stroke: var(--color-shu);
+}
+
+/* epoch の通過点。軌跡が本文の外にあるときだけ、マウス用の近道として押せる(キーボードはステータス行) */
+.dmap-mark {
+  display: block;
+  color: var(--color-cobalt);
+  text-decoration: none;
+}
+.descent[data-fit='side'] .dmap-mark {
+  pointer-events: auto;
+}
+.dmap-mark-box {
+  position: absolute;
+  left: -4px;
+  top: -4px;
+  width: 8px;
+  height: 8px;
+  background: var(--color-paper);
+  border: 1.25px solid currentColor;
+  transition:
+    background-color 200ms var(--ease-out-strong),
+    transform 120ms var(--ease-out-strong);
+}
+.dmap-mark-label {
+  position: absolute;
+  left: 9px;
+  top: -19px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+  padding: 2px 3px;
+  background: color-mix(in srgb, var(--color-paper) 80%, transparent);
+}
+.descent[data-fit='full'] .dmap-mark-label {
+  display: none;
+}
+.dmap-mark.is-flip .dmap-mark-label {
+  left: auto;
+  right: 9px;
+}
+.dmap-mark.is-done {
+  color: var(--color-shu);
+}
+.dmap-mark.is-done .dmap-mark-box {
+  background: currentColor;
+}
+@media (hover: hover) {
+  .dmap-mark:hover .dmap-mark-box {
+    transform: scale(1.35);
+  }
+  .dmap-mark:hover .dmap-mark-label {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+}
+
+/* 現在地。朱の点 + 薄い輪 */
+.dmap-here {
+  width: 0;
+  height: 0;
+}
+.dmap-here::before {
+  content: '';
+  position: absolute;
+  left: -5.5px;
+  top: -5.5px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--color-shu);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-shu) 18%, transparent);
+}
+
+/* 大域最小 θ*。十字の小さな印と、収束したときに 1 回だけ広がる波紋 */
+.dmap-star::before,
+.dmap-star::after {
+  content: '';
+  position: absolute;
+  background: var(--color-ink-muted);
+}
+.dmap-star::before {
+  left: -7px;
+  top: -0.5px;
+  width: 14px;
+  height: 1px;
+}
+.dmap-star::after {
+  left: -0.5px;
+  top: -7px;
+  width: 1px;
+  height: 14px;
+}
+.dmap-pulse {
+  position: absolute;
+  left: -10px;
+  top: -10px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--color-shu);
+  opacity: 0;
+}
+.dmap-star.is-pulsing .dmap-pulse {
+  animation: descent-pulse 1200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes descent-pulse {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  12% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(5);
+  }
+}
+
+/* 図のキャプション。軌跡が本文の外にあるときだけ、右下に添える */
+.dmap-caption {
+  display: none;
+}
+.descent[data-fit='side'] .dmap-caption {
+  display: block;
+  position: absolute;
+  right: 1.5rem;
+  bottom: calc(var(--status-h) + 1rem);
+  max-width: 22rem;
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  text-align: right;
+  color: var(--color-ink-muted);
+}
+.dmap-caption .font-mono {
+  margin-right: 0.5em;
+  color: var(--color-ink);
+}
+
+/* ---- tmux 風のステータス行(画面下端に固定)。セクション移動と train/loss の現在値 ---- */
+.dstatus {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  height: calc(var(--status-h) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  display: flex;
+  align-items: stretch;
+  /* 両テーマとも暗い帯にする(ダークで明るい帯にすると地図より目立ってしまうため) */
+  --bar-bg: light-dark(#1f2e3a, #172029);
+  --bar-fg: #dbe4ec;
+  background: var(--bar-bg);
+  color: var(--bar-fg);
+  border-top: 1px solid var(--color-line);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.dstatus-session {
+  display: none;
+  align-items: center;
+  padding: 0 0.75rem;
+  background: var(--color-shu);
+  color: light-dark(#fff, #0e151c);
+  font-weight: 500;
+}
+.dstatus ol {
+  display: flex;
+  min-width: 0;
+  margin: 0;
+  padding: 0 0.25rem;
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.dstatus a {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 0.625rem;
+  color: inherit;
+  text-decoration: none;
+  opacity: 0.72;
+  transition:
+    opacity 120ms var(--ease-out-strong),
+    background-color 120ms var(--ease-out-strong);
+}
+@media (hover: hover) {
+  .dstatus a:hover {
+    opacity: 1;
+  }
+}
+.dstatus a[aria-current] {
+  opacity: 1;
+  background: var(--bar-fg);
+  color: #1f2e3a;
+}
+.dstatus a:focus-visible {
+  outline: 2px solid var(--color-cobalt);
+  outline-offset: -2px;
+  opacity: 1;
+}
+
+/* 右端: train/loss の小さな曲線と現在値、実行状態 */
+.dstatus-loss {
+  display: none;
+  align-items: center;
+  gap: 0.75rem;
+  margin-left: auto;
+  padding: 0 0.75rem;
+}
+.dstatus-loss b {
+  font-weight: 500;
+}
+.dstatus-loss [data-loss] {
+  color: light-dark(#f59a7c, #f0693f);
+}
+.dstatus-spark,
+.dstatus-name,
+.dstatus-step,
+.dstatus-state {
+  display: none;
+}
+.dstatus-spark {
+  width: 9rem;
+  height: 1.25rem;
+  overflow: visible;
+}
+.dstatus-spark .all {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1;
+  opacity: 0.35;
+}
+.dstatus-spark .done {
+  fill: none;
+  stroke: light-dark(#f59a7c, #f0693f);
+  stroke-width: 1.5;
+}
+.dstatus-spark .cur {
+  fill: light-dark(#f59a7c, #f0693f);
+}
+.dstatus-state {
+  align-items: center;
+  gap: 0.5em;
+  opacity: 0.72;
+  transition: opacity 600ms var(--ease-out-strong);
+}
+.dstatus-state::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+[data-converged] .dstatus-state {
+  opacity: 1;
+}
+[data-converged] .dstatus-state::before {
+  background: light-dark(#f59a7c, #f0693f);
+}
+@media (min-width: 30rem) {
+  .dstatus-loss {
+    display: flex;
+  }
+}
+@media (min-width: 64rem) {
+  .dstatus-session,
+  .dstatus-state {
+    display: flex;
+  }
+  .dstatus-spark,
+  .dstatus-name,
+  .dstatus-step {
+    display: block;
+  }
+}
+
+/* ---- 本文 ---- */
+/* 和文は文節で折り返す(対応ブラウザのみ。非対応では通常の折り返し) */
+.descent:lang(ja) :is(p, dd, li, h1, h2, h3) {
+  word-break: auto-phrase;
+}
+.dlog {
+  position: relative;
+  display: grid;
+  gap: 3.5rem;
+  padding: 2.5rem 1rem 5rem;
+}
+@media (min-width: 40rem) {
+  .dlog {
+    padding-inline: 2rem;
+  }
+}
+@media (min-width: 64rem) {
+  .dlog {
+    gap: 4.5rem;
+    padding: 4rem clamp(2.5rem, 7vw, 7.5rem) 7rem;
+  }
+}
+.dlog > * {
+  max-width: 40rem;
+}
+
+.epoch {
+  scroll-margin-top: 4.5rem;
+}
+
+.epoch-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 1rem;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+.epoch-no {
+  color: var(--color-ink);
+  transition: color 200ms var(--ease-out-strong);
+}
+.epoch-bar {
+  display: inline-flex;
+  gap: 3px;
+}
+.epoch-bar > span {
+  width: 12px;
+  height: 4px;
+  background: var(--color-line);
+}
+.epoch-bar > .is-on {
+  background: var(--color-ink-muted);
+}
+.epoch[data-current] .epoch-no,
+.epoch[data-current] .epoch-loss {
+  color: var(--color-shu);
+}
+.epoch[data-current] .epoch-bar > .is-here {
+  background: var(--color-shu);
+}
+.epoch-title {
+  margin-top: 0.375rem;
+  font-size: 1.5rem;
+  line-height: 1.35;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.epoch-out {
+  margin-top: 1.25rem;
+  padding-left: 1.25rem;
+  border-left: 1px solid var(--color-line);
+  transition: border-color 280ms var(--ease-out-strong);
+}
+.epoch[data-current] .epoch-out {
+  border-left-color: var(--color-shu);
+}
+
+/* プロフィール(epoch 0) */
+.prompt {
+  margin-top: 1.25rem;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-ink-muted);
+  overflow-wrap: anywhere;
+}
+.hero-name {
+  margin-top: 0.75rem;
+  font-size: clamp(2.75rem, 1.5rem + 4.4vw, 4.75rem);
+  line-height: 1.05;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.hero-sub {
+  margin-top: 0.625rem;
+  font-size: 1.125rem;
+  line-height: 1.4;
+  color: var(--color-ink-muted);
+  letter-spacing: 0;
+}
+.hero-title {
+  margin-top: 2rem;
+  font-size: 1.125rem;
+  line-height: 1.5;
+  font-weight: 600;
+}
+.hero-domain {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--color-ink-muted);
+}
+.hero-intro {
+  margin-top: 1rem;
+  max-width: 34em;
+  font-size: 0.9375rem;
+  line-height: var(--leading-article);
+}
+
+.contacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1.75rem;
+}
+.contact {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0 0.875rem;
+  border: 1px solid var(--color-line);
+  border-radius: 2px;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-size: 0.875rem;
+  text-decoration: none;
+  transition:
+    border-color 120ms var(--ease-out-strong),
+    background-color 120ms var(--ease-out-strong),
+    transform 120ms var(--ease-out-strong);
+}
+.contact svg {
+  color: var(--color-ink-muted);
+}
+.contact-label {
+  font-weight: 600;
+}
+.contact.is-primary {
+  background: var(--color-ink);
+  border-color: var(--color-ink);
+  color: var(--color-paper);
+}
+.contact.is-primary svg {
+  color: color-mix(in srgb, var(--color-paper) 72%, transparent);
+}
+@media (hover: hover) {
+  .contact:hover {
+    border-color: var(--color-ink);
+  }
+  .contact.is-primary:hover {
+    background: color-mix(in srgb, var(--color-ink) 86%, var(--color-cobalt));
+  }
+}
+.contact:active {
+  transform: scale(0.97);
+}
+.contact:focus-visible {
+  outline: 2px solid var(--color-cobalt);
+  outline-offset: 2px;
+}
+
+.config {
+  margin-top: 1.75rem;
+  padding: 0.875rem 1.125rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+.config p {
+  padding-left: 2ch;
+  text-indent: -2ch;
+}
+
+/* 行(専門領域・経歴) */
+.rows {
+  display: grid;
+  gap: 0.875rem;
+}
+.row {
+  display: grid;
+  gap: 0.125rem;
+  font-size: 0.9375rem;
+  line-height: var(--leading-list);
+}
+@media (min-width: 40rem) {
+  .row {
+    grid-template-columns: 10rem minmax(0, 1fr);
+    gap: 1.25rem;
+    align-items: baseline;
+  }
+}
+.row dt {
+  font-weight: 600;
+}
+.items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.125rem 0;
+  color: var(--color-ink-muted);
+}
+.items li:not(:last-child)::after {
+  content: '·';
+  padding: 0 0.6em;
+  color: var(--color-line);
+}
+.row-key {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+.sub-label {
+  margin: 1.75rem 0 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-ink-muted);
+}
+.updated {
+  margin-top: 1.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-ink-muted);
+}
+
+/* 個人開発・記事 */
+.projects {
+  display: grid;
+  gap: 1.75rem;
+}
+.project-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.875rem;
+}
+.project-name {
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+.project-repo {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-ink-muted);
+}
+.project-desc {
+  margin-top: 0.25rem;
+  font-size: 0.9375rem;
+  line-height: var(--leading-list);
+}
+.project-stack {
+  margin-top: 0.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-ink-muted);
+}
+.posts {
+  display: grid;
+  gap: 0.75rem;
+}
+.post-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 1rem;
+}
+.post-title {
+  font-weight: 600;
+}
+.post-note {
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  color: var(--color-ink-muted);
+}
+
+/* 収束の行。最下部に届くと印が朱に点灯する */
+.converged {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+  margin-top: 2.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  color: var(--color-ink-muted);
+  transition: color 600ms var(--ease-out-strong);
+}
+.converged-mark {
+  display: inline-block;
+  transition:
+    color 600ms var(--ease-out-strong),
+    transform 600ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.converged-stat {
+  font-size: 0.75rem;
+}
+[data-converged] .converged {
+  color: var(--color-ink);
+}
+[data-converged] .converged-mark {
+  color: var(--color-shu);
+  transform: scale(1.25);
+}
+
+@media print {
+  .dmap,
+  .dstatus {
+    display: none;
+  }
+  .dlog {
+    padding: 0;
+  }
+}

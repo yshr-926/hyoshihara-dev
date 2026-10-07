@@ -105,4 +105,4 @@ export const fieldGroups: { label: string; items: string[] }[] = [
 ];
 
 /** 主な使用言語(専門領域とは分ける) */
-export const languages: string[] = ['Python'];
+export const languages: string[] = ['Python', 'Rust', 'TypeScript'];

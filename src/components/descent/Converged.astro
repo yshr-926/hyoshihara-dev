@@ -1,0 +1,20 @@
+---
+/**
+ * 最後の epoch の末尾に出す収束の行。スクロールが最下部に届くと(DescentHome の data-converged)
+ * 印が朱に点灯し、地図の θ* で波紋が 1 回広がる。
+ */
+interface Props {
+  lang: 'ja' | 'en';
+  step: number;
+  loss: number;
+}
+
+const { lang, step, loss } = Astro.props;
+const text = lang === 'ja' ? '収束しました。θ* に到達' : 'converged at θ*';
+---
+
+<p class="converged">
+  <span class="converged-mark" aria-hidden="true">✓</span>
+  <span>{text}</span>
+  <span class="converged-stat" aria-hidden="true">step={step} loss={loss.toFixed(4)}</span>
+</p>

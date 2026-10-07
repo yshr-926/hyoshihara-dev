@@ -1,6 +1,10 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import { getCollection } from 'astro:content';
 import { profile } from '../data/profile';
+
+// 記事一覧への案内は、公開記事があるときだけ出す
+const hasPosts = (await getCollection('blog', ({ data }) => !data.draft)).length > 0;
 ---
 
 <Layout title={`ページが見つかりません — ${profile.siteName}`}>
@@ -19,14 +23,18 @@ import { profile } from '../data/profile';
           プロフィール
         </a>
       </li>
-      <li>
-        <a
-          href="/blog"
-          class="inline-flex min-h-11 items-center rounded-sm px-2 text-cobalt underline decoration-cobalt/40 underline-offset-4 transition-colors duration-200 ease-out-strong hover:text-ink hover:decoration-current active:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
-        >
-          記事一覧
-        </a>
-      </li>
+      {
+        hasPosts && (
+          <li>
+            <a
+              href="/blog"
+              class="inline-flex min-h-11 items-center rounded-sm px-2 text-cobalt underline decoration-cobalt/40 underline-offset-4 transition-colors duration-200 ease-out-strong hover:text-ink hover:decoration-current active:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
+            >
+              記事一覧
+            </a>
+          </li>
+        )
+      }
     </ul>
   </div>
 </Layout>

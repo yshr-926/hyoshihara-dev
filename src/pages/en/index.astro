@@ -1,8 +1,7 @@
 ---
 import { getCollection } from 'astro:content';
 import Layout from '../../layouts/Layout.astro';
-import ContactIcon from '../../components/ContactIcon.astro';
-import ProjectList from '../../components/ProjectList.astro';
+import DescentHome from '../../components/descent/DescentHome.astro';
 import {
   careerEn,
   contactsEn,
@@ -10,7 +9,6 @@ import {
   fieldGroupsEn,
   languagesEn,
   profileEn,
-  uiEn,
 } from '../../data/profile.en';
 import { profile } from '../../data/profile';
 
@@ -32,9 +30,6 @@ const primaryContact = contactsEn.find((contact) => contact.primary);
 const orderedContacts = primaryContact
   ? [primaryContact, ...contactsEn.filter((contact) => contact !== primaryContact)]
   : contactsEn;
-
-const linkClass =
-  'inline-flex min-h-11 items-center rounded-sm underline decoration-cobalt/40 underline-offset-4 transition-colors duration-200 ease-out-strong hover:text-ink hover:decoration-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt';
 
 const structuredData = {
   '@context': 'https://schema.org',
@@ -59,246 +54,42 @@ const structuredData = {
   lang="en"
   alternate={{ lang: 'ja', href: '/' }}
   structuredData={structuredData}
+  split
 >
   {
-    /* レイアウトは日本語トップと同一構成・同一セクション ID。h1 は日本語版と逆で英名を主役にし、
-      和名を読みの補助として小さく添える(英語読者にとって主たる呼称は英名のため) */
+    /* 日本語トップと同じ構成・同じセクション ID。英語読者にとって主たる呼称は英名なので、英名を主役にする */
   }
-  <div class="mt-2 sm:mt-8 lg:grid lg:grid-cols-[16rem_minmax(0,1fr)] lg:items-start lg:gap-x-12">
-    <!-- 氏名 → 肩書き → 専門領域 → 自己紹介 → 連絡先。図・キャッチコピー・数字は置かない -->
-    <section id="profile" aria-labelledby="name-heading" class="lg:sticky lg:top-24">
-      <h1 id="name-heading" class="text-4xl font-bold leading-none tracking-[-0.02em] sm:text-5xl">
-        {profileEn.fullName}
-      </h1>
-      <p lang="ja" class="mt-2 text-lg font-normal leading-tight tracking-normal text-ink-muted">
-        {profileEn.fullNameJa}
-      </p>
-      {/* 肩書きと専門領域 */}
-      <p class="mt-5 text-lg font-medium leading-snug">{profileEn.title}</p>
-      <p class="mt-1 text-base leading-snug text-ink-muted">{profileEn.domain}</p>
-      {/* 事実ベースの自己紹介 1〜2 文。宣伝表現・数字・案件名は入れない */}
-      <p class="mt-4 text-sm leading-list text-ink-muted">{profileEn.intro}</p>
-
-      <!-- 連絡先。テキストリンク 1 行、タップ領域 44px 角。別タブでは開かない。主連絡先(LinkedIn)が先頭 -->
-      <ul class="-mx-2 mt-6 flex flex-wrap gap-x-1 gap-y-0 text-sm" aria-label="Contact">
-        {
-          orderedContacts.map((contact) => (
-            <li>
-              <a
-                href={contact.href}
-                rel="me noopener"
-                class:list={[linkClass, 'min-w-11 justify-center gap-1.5 px-2 text-ink']}
-              >
-                <ContactIcon id={contact.id} class="size-4 shrink-0 text-ink-muted" />
-                {contact.label}
-                <span class="sr-only">
-                  ({contact.handle} · {contact.role})
-                </span>
-              </a>
-            </li>
-          ))
-        }
-      </ul>
-    </section>
-
-    {/* 右カラム。lg では左カラムの上端と揃えるので先頭セクションの上余白を消す */}
-    <div>
-      <!-- 専門領域: 2 群に分けて表示。主な使用言語は群とは分けて小さく添える -->
-      <section id="fields" aria-labelledby="fields-heading" class="mt-14 sm:mt-20 lg:mt-0">
-        <div class="relative mb-5 border-b border-line pb-2">
-          <p class="label-mono" aria-hidden="true">{uiEn.fieldsLabel}</p>
-          <h2 id="fields-heading" class="mt-0.5 text-lg font-semibold tracking-tight">
-            {uiEn.fieldsHeading}
-          </h2>
-          <span aria-hidden="true" class="absolute -bottom-px left-0 h-px w-8 bg-shu"></span>
-        </div>
-        <dl class="space-y-4">
-          {
-            fieldGroupsEn.map((group) => (
-              <div>
-                <dt class="text-sm font-medium">{group.label}</dt>
-                <dd class="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm leading-list text-ink-muted">
-                  {group.items.map((item) => (
-                    <span>{item}</span>
-                  ))}
-                </dd>
-              </div>
-            ))
-          }
-        </dl>
-        {
-          languagesEn.length > 0 && (
-            <p class="mt-4 text-xs leading-list text-ink-muted">
-              {uiEn.languagesLead} <span class="ml-1">{languagesEn.join(' / ')}</span>
-            </p>
-          )
-        }
-      </section>
-
-      <!-- 個人開発: 公開中のもの。説明は事実ベースで 1 文 -->
-      <section id="projects" aria-labelledby="projects-heading" class="mt-12 sm:mt-16">
-        <div class="relative mb-5 border-b border-line pb-2">
-          <p class="label-mono" aria-hidden="true">{uiEn.projectsLabel}</p>
-          <h2 id="projects-heading" class="mt-0.5 text-lg font-semibold tracking-tight">
-            {uiEn.projectsHeading}
-          </h2>
-          <span aria-hidden="true" class="absolute -bottom-px left-0 h-px w-8 bg-shu"></span>
-        </div>
-        <ProjectList lang="en" linkClass={linkClass} />
-      </section>
-
-      {
-        /* 代表記事: featured が 1 本以上あるときだけ出す。記事は日本語のみのため "(Japanese)" を添える */
-        featuredPosts.length > 0 && (
-          <section id="featured" aria-labelledby="featured-heading" class="mt-12 sm:mt-16">
-            <div class="relative mb-5 border-b border-line pb-2">
-              <p class="label-mono" aria-hidden="true">
-                {uiEn.featuredLabel}
-              </p>
-              <h2 id="featured-heading" class="mt-0.5 text-lg font-semibold tracking-tight">
-                {uiEn.featuredHeading}
-              </h2>
-              <span aria-hidden="true" class="absolute -bottom-px left-0 h-px w-8 bg-shu" />
-            </div>
-            <ul class="space-y-4">
-              {featuredPosts.map((post) => (
-                <li>
-                  <a
-                    href={`/blog/${post.id}`}
-                    hreflang="ja"
-                    class="group -mx-2 block min-h-11 rounded-sm px-2 py-2 transition-colors duration-200 ease-out-strong hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
-                  >
-                    <span class="block font-medium underline decoration-transparent underline-offset-4 transition-[text-decoration-color] duration-200 ease-out-strong group-hover:decoration-cobalt/40">
-                      {post.data.title}
-                      <span class="text-ink-muted"> {uiEn.japaneseSuffix}</span>
-                    </span>
-                    {post.data.featuredNote && (
-                      <span class="mt-1 block text-sm leading-list text-ink-muted">
-                        {post.data.featuredNote}
-                      </span>
-                    )}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )
-      }
-
-      <!-- 経歴: 会社名・職種・期間と学歴だけ。案件・成果・数字は載せない -->
-      <section id="career" aria-labelledby="career-heading" class="mt-12 sm:mt-16">
-        <div class="relative mb-5 border-b border-line pb-2">
-          <p class="label-mono" aria-hidden="true">{uiEn.careerLabel}</p>
-          <h2 id="career-heading" class="mt-0.5 text-lg font-semibold tracking-tight">
-            {uiEn.careerHeading}
-          </h2>
-          <span aria-hidden="true" class="absolute -bottom-px left-0 h-px w-8 bg-shu"></span>
-        </div>
-        <ul class="space-y-3 text-[15px] leading-list">
-          {
-            careerEn.map((job) => (
-              <li class="grid grid-cols-1 gap-x-4 gap-y-0.5 sm:grid-cols-[9rem_minmax(0,1fr)] sm:gap-y-0">
-                {/* 期間は等幅。「現在」だけ朱(現在地)。〜sm では期間を上段、内容を下段に組む */}
-                <span class="font-mono text-xs leading-list text-ink-muted">
-                  <time datetime={job.from.iso}>{job.from.text}</time>
-                  <span aria-hidden="true"> — </span>
-                  {job.to === 'Present' ? (
-                    <span class="font-sans text-shu">Present</span>
-                  ) : (
-                    <time datetime={job.to.iso}>{job.to.text}</time>
-                  )}
-                </span>
-                <span>
-                  {job.company}
-                  <span aria-hidden="true" class="mx-1 text-ink-muted">
-                    /
-                  </span>
-                  {job.role}
-                </span>
-              </li>
-            ))
-          }
-        </ul>
-
-        <!-- 学歴: 職歴との間に小見出しを置いて区切る -->
-        <p class="label-mono mt-6 mb-3 text-ink-muted" aria-hidden="true">
-          {uiEn.educationLabel}
-        </p>
-        <h3 class="sr-only">{uiEn.educationHeading}</h3>
-        <ul class="space-y-3 text-[15px] leading-list">
-          {
-            educationEn.map((entry) => (
-              <li class="grid grid-cols-1 gap-x-4 gap-y-0.5 sm:grid-cols-[9rem_minmax(0,1fr)] sm:gap-y-0">
-                <time datetime={entry.year} class="font-mono text-xs leading-list text-ink-muted">
-                  {entry.year}
-                </time>
-                <span>
-                  {entry.school}, {entry.status}
-                </span>
-              </li>
-            ))
-          }
-        </ul>
-
-        <p class="mt-6 font-mono text-xs text-ink-muted">
-          {`${uiEn.lastUpdated} ${profileEn.updatedAt}`}
-        </p>
-      </section>
-
-      {
-        /* 記事: 公開記事があるときだけ。0 件なら DOM ごと出さない(空のセクションを見せない)。
-          記事は日本語のみのため各リンクに "(Japanese)" を添え、hreflang="ja" を付ける */
-        posts.length > 0 && (
-          <section id="posts" aria-labelledby="posts-heading" class="mt-12 sm:mt-16">
-            <div class="relative mb-4 flex items-end justify-between border-b border-line pb-2">
-              <div>
-                <p class="label-mono" aria-hidden="true">
-                  {uiEn.postsLabel}
-                </p>
-                <h2 id="posts-heading" class="mt-0.5 text-lg font-semibold tracking-tight">
-                  {uiEn.postsHeading}
-                </h2>
-              </div>
-              <a
-                href="/blog"
-                hreflang="ja"
-                class:list={[linkClass, 'items-end pb-[3px] text-sm text-ink-muted']}
-              >
-                {/* リンクは inline-flex なので、文とサフィックスを別々に置くと 2 つのフレックスアイテムになり
-                    間の空白が消える。1 つの span で包んで通常のインライン文として組む */}
-                <span>
-                  {uiEn.postsAll}
-                  <span class="text-ink-muted"> {uiEn.japaneseSuffix}</span>
-                </span>
-              </a>
-              <span aria-hidden="true" class="absolute -bottom-px left-0 h-px w-8 bg-shu" />
-            </div>
-            <ul class="divide-y divide-line">
-              {posts.map((post) => (
-                <li>
-                  <a
-                    href={`/blog/${post.id}`}
-                    hreflang="ja"
-                    class="group -mx-2 flex min-h-11 flex-wrap items-baseline gap-x-4 gap-y-1 rounded-sm px-2 py-2 text-sm leading-list transition-colors duration-200 ease-out-strong hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
-                  >
-                    {/* 下線はオン/オフではなく色のフェードで出す(透明→コバルト) */}
-                    <span class="font-medium underline decoration-transparent underline-offset-4 transition-[text-decoration-color] duration-200 ease-out-strong group-hover:decoration-cobalt/40">
-                      {post.data.title}
-                      <span class="text-ink-muted"> {uiEn.japaneseSuffix}</span>
-                    </span>
-                    <time
-                      datetime={post.data.date.toISOString().slice(0, 10)}
-                      class="shrink-0 font-mono text-xs text-ink-muted"
-                    >
-                      {post.data.date.toISOString().slice(0, 10)}
-                    </time>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )
-      }
-    </div>
-  </div>
+  <DescentHome
+    lang="en"
+    name={profileEn.fullName}
+    nameSub={profileEn.fullNameJa}
+    title={profileEn.title}
+    domain={profileEn.domain}
+    intro={profileEn.intro}
+    contacts={orderedContacts}
+    affiliation={careerEn[0].company}
+    languages={languagesEn}
+    fields={fieldGroupsEn}
+    career={careerEn.map((job) => ({
+      from: job.from,
+      to: job.to === 'Present' ? null : job.to,
+      company: job.company,
+      role: job.role,
+    }))}
+    education={educationEn.map((entry) => ({
+      year: entry.year,
+      text: `${entry.school}, ${entry.status}`,
+    }))}
+    featured={featuredPosts.map((post) => ({
+      href: `/blog/${post.id}`,
+      title: post.data.title,
+      note: post.data.featuredNote,
+    }))}
+    posts={posts.map((post) => ({
+      href: `/blog/${post.id}`,
+      title: post.data.title,
+      date: post.data.date,
+    }))}
+    updatedAt={profileEn.updatedAt}
+  />
 </Layout>

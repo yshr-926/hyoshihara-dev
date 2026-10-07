@@ -109,24 +109,4 @@ export const fieldGroupsEn: { label: string; items: string[] }[] = [
 ];
 
 /** 主な使用言語(専門領域とは分ける) */
-export const languagesEn: string[] = ['Python'];
-
-/** UI 文言(en/index.astro 側で使う、Layout の辞書とは別枠) */
-export const uiEn = {
-  fieldsLabel: 'FIELDS',
-  fieldsHeading: 'Fields',
-  languagesLead: 'Primary language',
-  careerLabel: 'CAREER',
-  careerHeading: 'Career',
-  educationLabel: 'EDUCATION',
-  educationHeading: 'Education',
-  postsLabel: 'POSTS',
-  postsHeading: 'Posts',
-  postsAll: 'All posts',
-  projectsLabel: 'PROJECTS',
-  projectsHeading: 'Projects',
-  featuredLabel: 'FEATURED',
-  featuredHeading: 'Start here',
-  lastUpdated: 'Last updated',
-  japaneseSuffix: '(Japanese)',
-} as const;
+export const languagesEn: string[] = ['Python', 'Rust', 'TypeScript'];

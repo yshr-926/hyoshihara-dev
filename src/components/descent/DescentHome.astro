@@ -1,0 +1,645 @@
+---
+/**
+ * トップページ(日本語 / 英語)の本体。「降下ログ」: 損失曲面の等高線と SGD の軌跡を画面全体の背景に固定し、
+ * 本文を学習ジョブの出力として重ねる。セクション = epoch。スクロールすると SGD の点が谷へ降り、
+ * 最後のセクションで大域最小 θ* に収束する。train/loss の現在値は下端のステータス行に出す。
+ *
+ * - 等高線はビルド時に SVG のパスにする(d3 をブラウザに送らない)。軌跡・現在地だけをスクリプトで描く
+ * - 本文は読みやすさを優先して和文プロポーショナルのまま。等幅は epoch・step・loss などのメタ情報だけ
+ * - 朱 = 現在地(サイト全体の約束)。地図の軌跡・現在の点・現在の epoch に限って使う
+ * - PC は軌跡を本文の右の空きに収める。空きが足りない幅では軌跡を本文の後ろに通し、紙のベールを薄くかける
+ * - セクションの移動は画面下端のステータス行(キーボード・読み上げもここ)
+ */
+import ContactIcon from '../ContactIcon.astro';
+import EpochHead from './EpochHead.astro';
+import Converged from './Converged.astro';
+import { projects } from '../../data/projects';
+import { at, STEPS } from '../../lib/descent';
+import { buildContours } from '../../lib/contours';
+import type { ContactId } from '../../data/profile';
+import './descent.css';
+
+export interface DescentContact {
+  id: ContactId;
+  label: string;
+  handle: string;
+  href: string;
+}
+export interface DescentCareer {
+  from: { iso: string; text: string };
+  /** 在籍中は null */
+  to: { iso: string; text: string } | null;
+  company: string;
+  role: string;
+}
+export interface DescentPost {
+  href: string;
+  title: string;
+  date?: Date;
+  note?: string;
+}
+
+interface Props {
+  lang: 'ja' | 'en';
+  /** 主役の氏名(ja: 和名 / en: 英名)と、読みの補助として添える氏名 */
+  name: string;
+  nameSub: string;
+  title: string;
+  domain: string;
+  intro: string;
+  /** 主連絡先を先頭にした連絡先 */
+  contacts: DescentContact[];
+  affiliation: string;
+  languages: string[];
+  fields: { label: string; items: string[] }[];
+  career: DescentCareer[];
+  /** text は学校名と修了・卒業を言語ごとの書き方でつないだもの */
+  education: { year: string; text: string }[];
+  featured: DescentPost[];
+  posts: DescentPost[];
+  updatedAt: string;
+}
+
+const p = Astro.props;
+const { lang } = p;
+
+const UI = {
+  ja: {
+    sections: {
+      profile: 'プロフィール',
+      fields: '専門領域',
+      projects: '個人開発',
+      featured: 'まず読んでほしい記事',
+      career: '経歴',
+      posts: '記事',
+    },
+    present: '現在',
+    from: 'から',
+    education: '学歴',
+    allPosts: '記事一覧',
+    repo: (name: string) => `(${name} のリポジトリ)`,
+    caption:
+      '損失曲面 L(θ) の等高線と、モメンタム SGD の軌跡。スクロールに合わせて谷へ降りていきます',
+    mapNav: 'セクション',
+    updated: '最終更新',
+    postsSuffix: '',
+  },
+  en: {
+    sections: {
+      profile: 'Profile',
+      fields: 'Fields',
+      projects: 'Projects',
+      featured: 'Start here',
+      career: 'Career',
+      posts: 'Posts',
+    },
+    present: 'Present',
+    from: 'to',
+    education: 'Education',
+    allPosts: 'All posts',
+    repo: (name: string) => ` (${name} repository)`,
+    caption:
+      'Contours of the loss surface L(θ) and a momentum SGD trajectory. It descends as you scroll.',
+    mapNav: 'Sections',
+    updated: 'Last updated',
+    postsSuffix: ' (Japanese)',
+  },
+}[lang];
+
+// セクション = epoch。記事は公開分があるときだけ出す(空のセクションは見せない)
+const sectionDefs = [
+  { id: 'profile', tab: 'init' },
+  { id: 'fields', tab: 'fields' },
+  { id: 'projects', tab: 'projects' },
+  ...(p.featured.length > 0 ? [{ id: 'featured', tab: 'featured' }] : []),
+  { id: 'career', tab: 'career' },
+  ...(p.posts.length > 0 ? [{ id: 'posts', tab: 'posts' }] : []),
+] as const;
+const E = sectionDefs.length - 1;
+// 各 epoch は道のりを等分した位置。見出しの step / loss はその位置での実際の値
+const sections = sectionDefs.map((s, i) => {
+  const pt = at(i / E);
+  return {
+    ...s,
+    i,
+    name: UI.sections[s.id],
+    step: String(Math.round(pt.t)).padStart(3, '0'),
+    loss: pt.loss.toFixed(4),
+  };
+});
+const sec = Object.fromEntries(sections.map((s) => [s.id, s]));
+const last = at(1);
+
+const contours = buildContours();
+// スクリプトが動く前(と JS なし)の表示範囲。横長の画面で、軌跡が右寄りに収まる範囲
+const fallbackViewBox = `-9 -4.5 11 6.9`;
+
+// 設定ファイル風のプロフィール。値はすべて実データ
+const config: [string, string, 'str' | 'raw'][] = [
+  ['objective', p.domain, 'str'],
+  ['affiliation', p.affiliation, 'str'],
+  ['languages', `[${p.languages.join(', ')}]`, 'raw'],
+];
+
+const fmtDate = (d: Date) => d.toISOString().slice(0, 10);
+const linkUnderline =
+  'underline decoration-cobalt/40 underline-offset-4 transition-colors duration-150 ease-out-strong hover:decoration-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt rounded-xs';
+---
+
+<div class="descent" data-descent data-epochs={E} data-fit="side">
+  {/* ---- 背景の地図(装飾。セクション移動はステータス行が担う)---- */}
+  <div class="dmap" aria-hidden="true">
+    <svg class="dmap-svg" viewBox={fallbackViewBox} preserveAspectRatio="xMaxYMid slice">
+      <g>
+        {
+          contours.map((c) => (
+            <path
+              d={c.d}
+              class:list={['dmap-level', c.major && 'is-major']}
+              style={`--depth:${c.depth.toFixed(2)}`}
+            />
+          ))
+        }
+      </g>
+      <path class="dmap-route-todo" d=""></path>
+      <path class="dmap-route-done" d=""></path>
+    </svg>
+    {/* 等高線と軌跡にだけかける紙のベール。現在の点・通過点はベールの上に出す */}
+    <div class="dveil"></div>
+    <div class="dmap-overlay">
+      <span class="dmap-star" data-star><span class="dmap-pulse"></span></span>
+      {
+        sections.map((s) => (
+          <a
+            href={`#${s.id}`}
+            class="dmap-mark"
+            data-mark={s.i}
+            tabindex="-1"
+            hidden
+            title={s.name}
+          >
+            <span class="dmap-mark-box" />
+            <span class="dmap-mark-label">
+              e{s.i} {s.tab}
+            </span>
+          </a>
+        ))
+      }
+      <span class="dmap-here" data-here hidden></span>
+    </div>
+    <p class="dmap-caption">
+      <span class="font-mono">fig. 1</span>
+      {UI.caption}
+    </p>
+  </div>
+
+  {/* tmux 風のステータス行。セクションへの移動と train/loss の現在値 */}
+  <nav class="dstatus" aria-label={UI.mapNav}>
+    <span class="dstatus-session" aria-hidden="true">[descend]</span>
+    <ol>
+      {
+        sections.map((s) => (
+          <li>
+            <a href={`#${s.id}`} data-tab={s.i} aria-label={s.name}>
+              <span aria-hidden="true">
+                {s.i}:{s.tab}
+              </span>
+            </a>
+          </li>
+        ))
+      }
+    </ol>
+    <span class="dstatus-loss" aria-hidden="true">
+      <span class="dstatus-name">train/loss</span>
+      <svg class="dstatus-spark" viewBox="0 0 144 20" preserveAspectRatio="none" data-curve></svg>
+      <span class="dstatus-step">step <b data-step>000</b>/{STEPS}</span>
+      <span>L=<b data-loss>{at(0).loss.toFixed(4)}</b></span>
+      <span class="dstatus-state" data-state>running</span>
+    </span>
+  </nav>
+
+  {/* ---- 本文(学習ジョブの出力)---- */}
+  <div class="dlog">
+    <section id="profile" class="epoch" data-epoch="0" aria-labelledby="name-heading">
+      <EpochHead s={sec.profile} E={E} />
+      <p class="prompt" aria-hidden="true">
+        <span class="hidden text-cobalt sm:inline">hiroto@dev:</span>~$ <span class="text-ink"
+          >python descend.py -c profile.yaml</span
+        >
+      </p>
+      <h1 id="name-heading" class="hero-name">{p.name}</h1>
+      <p class="hero-sub" lang={lang === 'ja' ? 'en' : 'ja'}>{p.nameSub}</p>
+      <p class="hero-title">{p.title}</p>
+      <p class="hero-domain">{p.domain}</p>
+      <p class="hero-intro">{p.intro}</p>
+
+      <ul class="contacts" aria-label={lang === 'ja' ? '連絡先' : 'Contact'}>
+        {
+          p.contacts.map((c, i) => (
+            <li>
+              <a href={c.href} rel="me noopener" class:list={['contact', i === 0 && 'is-primary']}>
+                <ContactIcon id={c.id} class="size-4 shrink-0" />
+                <span class="contact-label">{c.label}</span>
+                <span class="sr-only">({c.handle})</span>
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+
+      {/* 設定ファイル風。1 行 = 1 要素で組む(pre の中の改行・空白は整形で崩れやすいため使わない)*/}
+      <div
+        class="config"
+        role="group"
+        aria-label={lang === 'ja' ? 'プロフィールの設定' : 'Profile config'}
+      >
+        <p class="text-ink-muted" aria-hidden="true"># config/profile.yaml</p>
+        {
+          config.map(([k, v, kind]) => (
+            <p>
+              <span class="text-cobalt">{k}</span>
+              <span aria-hidden="true">: </span>
+              <span class="sr-only"> </span>
+              {kind === 'str' ? `"${v}"` : v}
+            </p>
+          ))
+        }
+      </div>
+    </section>
+
+    <section id="fields" class="epoch" data-epoch={sec.fields.i} aria-labelledby="fields-heading">
+      <EpochHead s={sec.fields} E={E} headingId="fields-heading" />
+      <div class="epoch-out">
+        <dl class="rows">
+          {
+            p.fields.map((g) => (
+              <div class="row">
+                <dt>{g.label}</dt>
+                <dd>
+                  <ul class="items">
+                    {g.items.map((item) => (
+                      <li>{item}</li>
+                    ))}
+                  </ul>
+                </dd>
+              </div>
+            ))
+          }
+        </dl>
+      </div>
+    </section>
+
+    <section
+      id="projects"
+      class="epoch"
+      data-epoch={sec.projects.i}
+      aria-labelledby="projects-heading"
+    >
+      <EpochHead s={sec.projects} E={E} headingId="projects-heading" />
+      <div class="epoch-out">
+        <ul class="projects">
+          {
+            projects.map((project) => (
+              <li class="project">
+                <div class="project-head">
+                  <a href={project.href} class:list={['project-name', linkUnderline]}>
+                    {project.name}
+                  </a>
+                  {project.repo && (
+                    <a href={project.repo} class:list={['project-repo', linkUnderline]}>
+                      src
+                      <span class="sr-only">{UI.repo(project.name)}</span>
+                    </a>
+                  )}
+                </div>
+                <p class="project-desc">{project.description[lang]}</p>
+                <p class="project-stack">
+                  <span aria-hidden="true">stack=</span>
+                  {project.stack.join(', ')}
+                </p>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+    </section>
+
+    {
+      sec.featured && (
+        <section
+          id="featured"
+          class="epoch"
+          data-epoch={sec.featured.i}
+          aria-labelledby="featured-heading"
+        >
+          <EpochHead s={sec.featured} E={E} headingId="featured-heading" />
+          <div class="epoch-out">
+            <ul class="posts">
+              {p.featured.map((post) => (
+                <li>
+                  <a
+                    href={post.href}
+                    hreflang={lang === 'en' ? 'ja' : undefined}
+                    class:list={['post-title', linkUnderline]}
+                  >
+                    {post.title}
+                  </a>
+                  {UI.postsSuffix && <span class="text-ink-muted">{UI.postsSuffix}</span>}
+                  {post.note && <p class="post-note">{post.note}</p>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      )
+    }
+
+    <section id="career" class="epoch" data-epoch={sec.career.i} aria-labelledby="career-heading">
+      <EpochHead s={sec.career} E={E} headingId="career-heading" />
+      <div class="epoch-out">
+        <ul class="rows">
+          {
+            p.career.map((job) => (
+              <li class="row">
+                <span class="row-key">
+                  <time datetime={job.from.iso}>{job.from.text}</time>
+                  <span aria-hidden="true">–</span>
+                  <span class="sr-only">{UI.from}</span>
+                  {job.to ? (
+                    <time datetime={job.to.iso}>{job.to.text}</time>
+                  ) : (
+                    <span class="text-shu">{UI.present}</span>
+                  )}
+                </span>
+                <span>
+                  {job.company}
+                  <span aria-hidden="true" class="mx-1.5 text-ink-muted">
+                    /
+                  </span>
+                  <span class="sr-only">、</span>
+                  {job.role}
+                </span>
+              </li>
+            ))
+          }
+        </ul>
+        <h3 class="sub-label">{UI.education}</h3>
+        <ul class="rows">
+          {
+            p.education.map((entry) => (
+              <li class="row">
+                <time class="row-key" datetime={entry.year}>
+                  {entry.year}
+                </time>
+                <span>{entry.text}</span>
+              </li>
+            ))
+          }
+        </ul>
+        <p class="updated">
+          {UI.updated}{' '}
+          <time datetime={p.updatedAt}>{p.updatedAt}</time>
+        </p>
+        {sec.career.i === E && <Converged lang={lang} step={STEPS} loss={last.loss} />}
+      </div>
+    </section>
+
+    {
+      sec.posts && (
+        <section id="posts" class="epoch" data-epoch={sec.posts.i} aria-labelledby="posts-heading">
+          <EpochHead s={sec.posts} E={E} headingId="posts-heading" />
+          <div class="epoch-out">
+            <ul class="posts">
+              {p.posts.map((post) => (
+                <li class="post-row">
+                  <a
+                    href={post.href}
+                    hreflang={lang === 'en' ? 'ja' : undefined}
+                    class:list={['post-title', linkUnderline]}
+                  >
+                    {post.title}
+                  </a>
+                  {UI.postsSuffix && <span class="text-ink-muted">{UI.postsSuffix}</span>}
+                  {post.date && (
+                    <time class="row-key" datetime={fmtDate(post.date)}>
+                      {fmtDate(post.date)}
+                    </time>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <p class="mt-3">
+              <a href="/blog" class:list={['text-sm text-ink-muted', linkUnderline]}>
+                {UI.allPosts}
+                {UI.postsSuffix && <span>{UI.postsSuffix}</span>}
+              </a>
+            </p>
+            <Converged lang={lang} step={STEPS} loss={last.loss} />
+          </div>
+        </section>
+      )
+    }
+  </div>
+</div>
+
+<script>
+  import { at, losses, lossRange, STEPS, traj, bbox, MIN } from '../../lib/descent';
+
+  let abort: AbortController | null = null;
+
+  function init() {
+    abort?.abort();
+    const root = document.querySelector<HTMLElement>('[data-descent]');
+    if (!root) return;
+    abort = new AbortController();
+    const { signal } = abort;
+
+    const E = Number(root.dataset.epochs);
+    const svg = root.querySelector<SVGSVGElement>('.dmap-svg')!;
+    const veil = root.querySelector<HTMLElement>('.dveil')!;
+    const content = root.querySelector<HTMLElement>('.dlog > *')!;
+    const status = root.querySelector<HTMLElement>('.dstatus')!;
+    const todo = root.querySelector<SVGPathElement>('.dmap-route-todo')!;
+    const done = root.querySelector<SVGPathElement>('.dmap-route-done')!;
+    const here = root.querySelector<HTMLElement>('[data-here]')!;
+    const star = root.querySelector<HTMLElement>('[data-star]')!;
+    const marks = [...root.querySelectorAll<HTMLElement>('[data-mark]')];
+    const tabs = [...root.querySelectorAll<HTMLElement>('[data-tab]')];
+    const epochs = [...root.querySelectorAll<HTMLElement>('[data-epoch]')];
+    const stepEl = root.querySelector<HTMLElement>('[data-step]')!;
+    const lossEl = root.querySelector<HTMLElement>('[data-loss]')!;
+    const curve = root.querySelector<SVGSVGElement>('[data-curve]')!;
+    const stateEl = root.querySelector<HTMLElement>('[data-state]')!;
+    const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+
+    // ---- ステータス行の train/loss(軌跡に沿った実際の L(θ))。viewBox 固定なので一度だけ組む ----
+    const CW = 144,
+      CH = 20;
+    const CX = (t: number) => (t / STEPS) * CW;
+    const CY = (v: number) =>
+      2 + (1 - (v - lossRange.min) / (lossRange.max - lossRange.min)) * (CH - 4);
+    const curveD = losses
+      .map((v, i) => `${i ? 'L' : 'M'}${CX(i).toFixed(1)},${CY(v).toFixed(1)}`)
+      .join('');
+    curve.innerHTML =
+      `<path d="${curveD}" class="all" vector-effect="non-scaling-stroke"/>` +
+      `<clipPath id="loss-clip"><rect x="0" y="-2" width="0" height="${CH + 4}"/></clipPath>` +
+      `<path d="${curveD}" class="done" clip-path="url(#loss-clip)" vector-effect="non-scaling-stroke"/>` +
+      `<circle r="2.25" class="cur"/>`;
+    const clipRect = curve.querySelector('rect')!;
+    const curDot = curve.querySelector('circle')!;
+
+    // ---- 背景の座標変換。曲面の座標 (x, y) → 画面の px ----
+    let view = { s: 1, ox: 0, oy: 0 };
+    const toPx = (x: number, y: number): [number, number] => [
+      (x - view.ox) * view.s,
+      (-y - view.oy) * view.s,
+    ];
+    let routeLen = 0;
+
+    function layout() {
+      const W = innerWidth,
+        H = innerHeight;
+      const header = document.getElementById('site-header')?.offsetHeight ?? 0;
+      const bottom = status.offsetHeight;
+      // 軌跡を置く領域。本文の右に十分な空きがあればそこへ(side)、なければ画面全体で本文の後ろへ(full)
+      const textRight = content.getBoundingClientRect().right;
+      const sideW = W - textRight - 72 - 48;
+      const side = sideW >= 260;
+      const area = side
+        ? { l: textRight + 72, r: W - 48, t: header + 64, b: H - bottom - 96 }
+        : { l: 24, r: W - 24, t: header + 48, b: H - bottom - 48 };
+      root.dataset.fit = side ? 'side' : 'full';
+      veil.style.setProperty('--veil-x', `${Math.max(0, textRight)}px`);
+
+      const bw = bbox.x1 - bbox.x0,
+        bh = bbox.y1 - bbox.y0;
+      // 本文の後ろに通すときは、画面の幅いっぱいに広げすぎない(上下に余白を残して、谷が画面の中ほどに来るように)
+      const s = Math.min((area.r - area.l) / bw, (area.b - area.t) / bh, side ? 240 : 160);
+      const cx = area.l + (area.r - area.l - bw * s) / 2;
+      const cy = area.t + (area.b - area.t - bh * s) / 2;
+      const ox = bbox.x0 - cx / s;
+      const oy = -bbox.y1 - cy / s;
+      view = { s, ox, oy };
+      svg.setAttribute('viewBox', `${ox} ${oy} ${W / s} ${H / s}`);
+      svg.setAttribute('preserveAspectRatio', 'none');
+
+      // 軌跡は曲面の座標のまま描き、線幅と点線の間隔だけ px に合わせる(拡大率で太さが変わらないように)
+      const d = traj
+        .map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(4)} ${(-y).toFixed(4)}`)
+        .join('');
+      todo.setAttribute('d', d);
+      done.setAttribute('d', d);
+      todo.style.strokeWidth = `${1.25 / s}`;
+      todo.style.strokeDasharray = `${1 / s} ${5 / s}`;
+      done.style.strokeWidth = `${2 / s}`;
+      routeLen = done.getTotalLength();
+      done.style.strokeDasharray = `${routeLen} ${routeLen}`;
+
+      marks.forEach((m) => {
+        const pt = at(Number(m.dataset.mark) / E);
+        const [px, py] = toPx(pt.x, pt.y);
+        m.style.transform = `translate(${px}px, ${py}px)`;
+        // 右端に近い点はラベルを左側に出す(画面の外に切れないように)
+        m.classList.toggle('is-flip', px > W - 110);
+        m.hidden = false;
+      });
+      const [sx, sy] = toPx(MIN[0], MIN[1]);
+      star.style.transform = `translate(${sx}px, ${sy}px)`;
+      here.hidden = false;
+      measure();
+      draw();
+    }
+
+    // ---- スクロール位置 → 道のりの割合 u ----
+    let anchors: number[] = [];
+    function measure() {
+      const header = document.getElementById('site-header')?.offsetHeight ?? 0;
+      const line = header + (innerHeight - header) * 0.3;
+      const max = document.documentElement.scrollHeight - innerHeight;
+      anchors = epochs.map((el) => el.getBoundingClientRect().top + scrollY - line);
+      // 末尾の数セクションが画面に収まってしまう場合は、最下部までの残りを等分して必ず全 epoch を通る
+      for (let i = anchors.length - 1; i >= 0; i--)
+        anchors[i] = Math.min(anchors[i], max - (anchors.length - 1 - i) * 48);
+      anchors[0] = 0;
+      for (let i = 1; i < anchors.length; i++)
+        anchors[i] = Math.max(anchors[i], anchors[i - 1] + 1);
+    }
+    function progress() {
+      const y = scrollY;
+      for (let i = 0; i < anchors.length - 1; i++)
+        if (y < anchors[i + 1])
+          return {
+            u: (i + Math.max(0, y - anchors[i]) / (anchors[i + 1] - anchors[i])) / E,
+            cur: i,
+          };
+      return { u: 1, cur: E };
+    }
+
+    let converged = false;
+    let lastCur = -1;
+    function draw() {
+      const { u, cur } = progress();
+      const pt = at(u);
+      done.style.strokeDashoffset = `${routeLen * (1 - u)}`;
+      const [hx, hy] = toPx(pt.x, pt.y);
+      here.style.transform = `translate(${hx}px, ${hy}px)`;
+      marks.forEach((m) => m.classList.toggle('is-done', Number(m.dataset.mark) / E <= u + 1e-6));
+
+      clipRect.setAttribute('width', String(CX(pt.t)));
+      curDot.setAttribute('cx', String(CX(pt.t)));
+      curDot.setAttribute('cy', String(CY(pt.loss)));
+      stepEl.textContent = String(Math.round(pt.t)).padStart(3, '0');
+      lossEl.textContent = pt.loss.toFixed(4);
+
+      if (cur !== lastCur) {
+        lastCur = cur;
+        epochs.forEach((el, i) => el.toggleAttribute('data-current', i === cur));
+        tabs.forEach((a, i) =>
+          i === cur
+            ? a.setAttribute('aria-current', 'location')
+            : a.removeAttribute('aria-current'),
+        );
+        // ステータス行は狭い画面で横に流れるので、現在の epoch を見える位置へ寄せる。
+        // scrollIntoView は祖先(地図パネル・ページ)までスクロールさせてしまうので、横方向だけを自分で動かす
+        const tab = tabs[cur]?.parentElement;
+        const list = tab?.parentElement;
+        if (tab && list) {
+          const left = tab.offsetLeft - list.offsetLeft;
+          if (left < list.scrollLeft) list.scrollLeft = left;
+          else if (left + tab.offsetWidth > list.scrollLeft + list.clientWidth)
+            list.scrollLeft = left + tab.offsetWidth - list.clientWidth;
+        }
+      }
+
+      // 収束の瞬間: θ* で波紋が 1 回広がり、ログの最終行が点灯する
+      const isConverged = u >= 0.999;
+      if (isConverged !== converged) {
+        converged = isConverged;
+        root.toggleAttribute('data-converged', converged);
+        stateEl.textContent = converged ? 'converged' : 'running';
+        if (converged && !reduceMotion.matches) {
+          star.classList.remove('is-pulsing');
+          void star.offsetWidth;
+          star.classList.add('is-pulsing');
+        }
+      }
+    }
+
+    let raf = 0;
+    const schedule = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(draw);
+    };
+    addEventListener('scroll', schedule, { passive: true, signal });
+    const ro = new ResizeObserver(() => layout());
+    ro.observe(document.body);
+    signal.addEventListener('abort', () => ro.disconnect());
+    addEventListener('resize', layout, { passive: true, signal });
+    document.fonts?.ready.then(() => !signal.aborted && layout());
+    layout();
+  }
+
+  document.addEventListener('astro:page-load', init);
+  document.addEventListener('astro:before-swap', () => abort?.abort());
+</script>

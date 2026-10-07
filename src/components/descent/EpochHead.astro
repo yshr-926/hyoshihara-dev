@@ -1,0 +1,34 @@
+---
+/**
+ * セクション(epoch)の見出し。上段は学習ログ風のメタ行(epoch・進み具合・その位置での step / loss)、
+ * 下段が見出し本体。メタ行は装飾なので読み上げず、見出しだけを読ませる。
+ * headingId を渡さなければメタ行だけ出す(先頭のプロフィールは h1 が見出しを兼ねるため)。
+ */
+interface Props {
+  s: { i: number; name: string; tab: string; step: string; loss: string };
+  E: number;
+  headingId?: string;
+}
+
+const { s, E, headingId } = Astro.props;
+---
+
+<div class="epoch-meta" aria-hidden="true">
+  <span class="epoch-no">epoch {s.i}/{E}</span>
+  <span class="epoch-bar">
+    {
+      Array.from({ length: E + 1 }, (_, k) => (
+        <span class:list={[k <= s.i && 'is-on', k === s.i && 'is-here']} />
+      ))
+    }
+  </span>
+  <span>step={s.step}</span>
+  <span>loss=<span class="epoch-loss">{s.loss}</span></span>
+</div>
+{
+  headingId && (
+    <h2 id={headingId} class="epoch-title">
+      {s.name}
+    </h2>
+  )
+}

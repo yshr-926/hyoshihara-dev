@@ -3,6 +3,7 @@ import '@fontsource/ibm-plex-mono/400.css';
 import '@fontsource/ibm-plex-mono/500.css';
 import '../styles/global.css';
 import { ClientRouter } from 'astro:transitions';
+import { getCollection } from 'astro:content';
 import { profile } from '../data/profile';
 
 interface Props {
@@ -23,6 +24,9 @@ interface Props {
   alternate?: { lang: 'ja' | 'en'; href: string };
   /** JSON-LD。オブジェクトか配列。<script type="application/ld+json"> で出力 */
   structuredData?: Record<string, unknown> | Record<string, unknown>[];
+  /** トップページの全幅構成(背景に地図を固定し、本文を左寄せで重ねる)。枠の最大幅を外し、ヘッダーを全幅にする。
+   *  フッターは本文と左端を揃え、下端に固定したステータス行のぶん下をあける */
+  split?: boolean;
 }
 
 // 枠の幅はヘッダー・main・フッターで共通(global.css の --container-site = max-w-site)。
@@ -37,6 +41,7 @@ const {
   lang = 'ja',
   alternate,
   structuredData,
+  split = false,
 } = Astro.props;
 
 // Astro.site が設定されていれば絶対URLに、なければ相対のまま
@@ -82,9 +87,11 @@ const isCurrent = (href: string) => {
     (normalizedHref !== '/' && currentPath.startsWith(`${normalizedHref}/`))
   );
 };
+// 「記事」は公開記事があるときだけ出す(0 件の一覧へ案内しない)。記事を公開すると自動で戻る
+const hasPosts = (await getCollection('blog', ({ data }) => !data.draft)).length > 0;
 const navItems = [
   { href: homeHref, label: t.navHome },
-  { href: '/blog', label: t.navPosts },
+  ...(hasPosts ? [{ href: '/blog', label: t.navPosts }] : []),
 ];
 
 const year = new Intl.DateTimeFormat('en', { timeZone: 'Asia/Tokyo', year: 'numeric' }).format(
@@ -186,11 +193,12 @@ const contentSwap = {
     {
       /* persist キーに lang を含める: 同じ言語内の遷移(/ → /blog 等)ではヘッダー DOM をそのまま
         使い回し(scroll-edge・テーマの状態を保つ)、言語が変わる遷移(/ ⇄ /en/)では別キー扱いになり
-        Astro が遷移先ページの SSR 済みヘッダー(正しいラベル・href・aria-label)に差し替える。 */
+        Astro が遷移先ページの SSR 済みヘッダー(正しいラベル・href・aria-label)に差し替える。
+        split(トップの全幅ヘッダー)もキーに含め、トップ ⇄ 記事の遷移で枠の幅が持ち越されないようにする。 */
     }
     <header
       id="site-header"
-      transition:persist={`site-header-${lang}`}
+      transition:persist={`site-header-${lang}${split ? '-split' : ''}`}
       class="site-header sticky top-0 z-50"
     >
       {
@@ -202,7 +210,10 @@ const contentSwap = {
       }
       <nav
         aria-label={lang === 'en' ? 'Main' : 'メイン'}
-        class="mx-auto flex min-h-13 max-w-site flex-wrap items-center justify-between gap-x-2 px-4"
+        class:list={[
+          'mx-auto flex min-h-13 flex-wrap items-center justify-between gap-x-2 px-4',
+          split ? 'lg:px-6' : 'max-w-site',
+        ]}
       >
         <a
           href={homeHref}
@@ -311,7 +322,7 @@ const contentSwap = {
       id="main"
       tabindex="-1"
       transition:animate={contentSwap}
-      class="mx-auto w-full max-w-site flex-1 px-4 py-10 focus:outline-none"
+      class:list={['w-full flex-1 focus:outline-none', !split && 'mx-auto max-w-site px-4 py-10']}
     >
       <slot />
     </main>
@@ -319,7 +330,13 @@ const contentSwap = {
       /* フッターは © の 1 行だけ(連絡先はトップの氏名ブロックにあるので重ねない)。
         上の罫線は px-4 の内側(div)に引き、本文・セクション罫線と左右端を揃える */
     }
-    <footer class="mx-auto w-full max-w-site px-4 pb-10">
+    <footer
+      class:list={[
+        split
+          ? 'relative px-4 pb-20 sm:px-8 lg:px-[clamp(2.5rem,7vw,7.5rem)] [&>div]:max-w-[40rem]'
+          : 'mx-auto w-full max-w-site px-4 pb-10',
+      ]}
+    >
       <div class="border-t border-line pt-6">
         <p class="font-mono text-xs text-ink-muted">© {year} {profile.fullName}</p>
       </div>
