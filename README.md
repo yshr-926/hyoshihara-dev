@@ -109,4 +109,9 @@ scripts/audit_deps.py    # 依存の脆弱性検査のラッパー
 
 ## ライセンス
 
-記事・プロフィールなどのコンテンツの権利は著者に帰属します。`src/assets/fonts/` の Noto Sans CJK は SIL Open Font License 1.1 です(`src/assets/fonts/LICENSE-NotoSansCJK.txt`)。
+| 対象                                                       | ライセンス                                                                                     |
+| :--------------------------------------------------------- | :--------------------------------------------------------------------------------------------- |
+| ソースコード                                               | [MIT](LICENSE)                                                                                 |
+| 記事(`src/content/blog/`)                                  | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.ja)(出典を明記すれば転載・改変可) |
+| プロフィール・経歴(`src/data/` とプロフィールページの文章) | 著作権は著者に帰属(無断転載不可)                                                               |
+| フォント(`src/assets/fonts/` の Noto Sans CJK)             | SIL Open Font License 1.1(`src/assets/fonts/LICENSE-NotoSansCJK.txt`)                          |
