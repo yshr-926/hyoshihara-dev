@@ -123,6 +123,8 @@ export const uiEn = {
   postsLabel: 'POSTS',
   postsHeading: 'Posts',
   postsAll: 'All posts',
+  projectsLabel: 'PROJECTS',
+  projectsHeading: 'Projects',
   featuredLabel: 'FEATURED',
   featuredHeading: 'Start here',
   lastUpdated: 'Last updated',

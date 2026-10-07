@@ -7,6 +7,8 @@ import { profile } from '../data/profile';
 
 interface Props {
   title: string;
+  /** og:title。SNS のカードはタブより文脈が少ないので、タブ名と分けたいときに渡す。既定: title */
+  ogTitle?: string;
   description?: string;
   /** OGP画像のパス(サイトルート基準、例: /og/blog/hello-world.png)。絶対URL化して出力する */
   ogImage?: string;
@@ -27,9 +29,10 @@ interface Props {
 // 記事本文のような読みやすい幅の制御は、各ページが枠の中で行う
 const {
   title,
+  ogTitle = title,
   description = `${profile.title}。${profile.domain}`,
   ogImage,
-  ogImageAlt = title,
+  ogImageAlt = ogTitle,
   ogType = 'website',
   lang = 'ja',
   alternate,
@@ -134,7 +137,7 @@ const contentSwap = {
       )
     }
     <!-- OGP: 画像は astro-og-canvas でビルド時に静的生成(/og/blog/<slug>.png) -->
-    <meta property="og:title" content={title} />
+    <meta property="og:title" content={ogTitle} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content={ogType} />
     <meta property="og:url" content={canonicalUrl} />

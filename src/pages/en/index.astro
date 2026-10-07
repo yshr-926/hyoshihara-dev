@@ -2,6 +2,7 @@
 import { getCollection } from 'astro:content';
 import Layout from '../../layouts/Layout.astro';
 import ContactIcon from '../../components/ContactIcon.astro';
+import ProjectList from '../../components/ProjectList.astro';
 import {
   careerEn,
   contactsEn,
@@ -11,6 +12,7 @@ import {
   profileEn,
   uiEn,
 } from '../../data/profile.en';
+import { profile } from '../../data/profile';
 
 // 最新記事(公開分)を新しい順に 3 件。下書き(draft)は常に除外する。0 件なら「記事」セクション自体を出さない
 // 記事本文は日本語のみ(英語版は用意しない)。リンクには "(Japanese)" を添え、hreflang="ja" を付ける
@@ -49,8 +51,9 @@ const structuredData = {
 ---
 
 <Layout
-  title={`${profileEn.fullName} — ${profileEn.title}`}
-  description={`Personal site of ${profileEn.fullName} (${profileEn.fullNameJa}), ${profileEn.title}. Working on ${profileEn.domainInline}. Career history and technical articles.`}
+  title={profile.siteName}
+  ogTitle={`${profileEn.fullName} — ${profileEn.title}`}
+  description={`Personal site of ${profileEn.fullName} (${profileEn.fullNameJa}), ${profileEn.title}. Working on ${profileEn.domainInline}. Career history, projects, and technical articles.`}
   ogImage="/og/site.png"
   ogImageAlt={`${profileEn.fullName} — ${profileEn.title}`}
   lang="en"
@@ -130,6 +133,18 @@ const structuredData = {
             </p>
           )
         }
+      </section>
+
+      <!-- 個人開発: 公開中のもの。説明は事実ベースで 1 文 -->
+      <section id="projects" aria-labelledby="projects-heading" class="mt-12 sm:mt-16">
+        <div class="relative mb-5 border-b border-line pb-2">
+          <p class="label-mono" aria-hidden="true">{uiEn.projectsLabel}</p>
+          <h2 id="projects-heading" class="mt-0.5 text-lg font-semibold tracking-tight">
+            {uiEn.projectsHeading}
+          </h2>
+          <span aria-hidden="true" class="absolute -bottom-px left-0 h-px w-8 bg-shu"></span>
+        </div>
+        <ProjectList lang="en" linkClass={linkClass} />
       </section>
 
       {
