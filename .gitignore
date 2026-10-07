@@ -38,3 +38,7 @@ node_modules/.astro-og-canvas/
 
 .playwright/
 .playwright-mcp/
+
+# wrangler のローカル状態(wrangler dev など)
+.wrangler/
+.dev.vars*

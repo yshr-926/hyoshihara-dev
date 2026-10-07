@@ -144,8 +144,12 @@ const contentSwap = {
     {ogImageUrl && <meta name="twitter:image" content={ogImageUrl} />}
     {ogImageUrl && <meta name="twitter:image:alt" content={ogImageAlt} />}
     {
+      /* JSON.stringify は < をエスケープしないので、値に </script> が入っても要素が閉じないよう \u003c にする */
       structuredData && (
-        <script type="application/ld+json" set:html={JSON.stringify(structuredData)} />
+        <script
+          type="application/ld+json"
+          set:html={JSON.stringify(structuredData).replace(/</g, '\\u003c')}
+        />
       )
     }
     {

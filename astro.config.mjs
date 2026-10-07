@@ -6,6 +6,7 @@ import tailwindcss from '@tailwindcss/vite';
 import sitemap from '@astrojs/sitemap';
 import { rehypeHeadingIds, unified } from '@astrojs/markdown-remark';
 import rehypeAutolinkHeadings from 'rehype-autolink-headings';
+import securityHeaders from './integrations/security-headers.mjs';
 
 /**
  * コードフェンスのメタ(```ts title="src/foo.ts")から title を拾い、
@@ -31,7 +32,8 @@ export default defineConfig({
   // /resume は廃止し、経歴はトップにまとめた。旧 URL からの流入はトップへ送る
   redirects: { '/resume': '/' },
 
-  integrations: [mdx(), sitemap()],
+  // securityHeaders は CSP などのヘッダーを dist/_headers に書き出す(Cloudflare が配信時に付ける)
+  integrations: [mdx(), sitemap(), securityHeaders()],
 
   markdown: {
     shikiConfig: {

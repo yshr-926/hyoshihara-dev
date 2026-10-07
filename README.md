@@ -30,18 +30,23 @@ bun install
 | `astro dev --background` | 開発サーバーをバックグラウンドで起動(`astro dev stop` / `status` / `logs` で管理) |
 | `bun run build`          | 本番ビルド(`dist/` 出力)。型・スキーマ検証を兼ねるため、変更後は必ず実行する      |
 | `bun run preview`        | ビルド結果をローカルで確認                                                        |
+| `bun run lint`           | ESLint                                                                            |
+| `bun run format:check`   | Prettier の整形チェック(`bun run format` で整形)                                  |
+| `bun run audit`          | 依存の脆弱性検査(既知の指摘リストと突き合わせる `scripts/audit_deps.py`)          |
 
-テスト・リンターは未導入。検証手段は `bun run build` の成功と開発サーバーでの目視確認です。
+テストは未導入。検証手段は上のコマンドの成功と開発サーバーでの目視確認です。CI(`.github/workflows/ci.yml`)でも同じものを回します。
 
 ## ページ構成
 
-| パス                  | 内容                                         |
-| :-------------------- | :------------------------------------------- |
-| `/`                   | トップ(自己紹介・実績ダイジェスト・最新記事) |
-| `/resume`             | レジュメ(職務経歴・スキルセット)             |
-| `/blog`               | 記事一覧                                     |
-| `/blog/[slug]`        | 記事詳細(Shiki によるコードハイライト)       |
-| `/og/blog/[slug].png` | 記事 OGP 画像(ビルド時に自動生成)            |
+| パス                  | 内容                                   |
+| :-------------------- | :------------------------------------- |
+| `/`                   | トップ(自己紹介・職務経歴・最新記事)   |
+| `/en/`                | 英語プロフィール                       |
+| `/blog`               | 記事一覧                               |
+| `/blog/[slug]`        | 記事詳細(Shiki によるコードハイライト) |
+| `/blog/tags/[tag]`    | タグ別の記事一覧                       |
+| `/rss.xml`            | RSS フィード                           |
+| `/og/blog/[slug].png` | 記事 OGP 画像(ビルド時に自動生成)      |
 
 ## 記事の書き方
 
@@ -71,33 +76,37 @@ src/
 ├── content/blog/        # 記事本体(*.mdx)。frontmatter は Zod で検証
 ├── content.config.ts    # blog コレクション定義(Zod スキーマ)
 ├── pages/
-│   ├── index.astro      # トップページ
-│   ├── resume.astro     # レジュメ
-│   ├── blog/            # 記事一覧・詳細([...slug].astro)
-│   └── og/blog/         # OGP 画像の動的エンドポイント
+│   ├── index.astro      # トップページ(経歴もここにまとめる。旧 /resume はここへリダイレクト)
+│   ├── en/              # 英語プロフィール
+│   ├── blog/            # 記事一覧・詳細([...slug].astro)・タグ別一覧
+│   ├── og/              # OGP 画像の動的エンドポイント
+│   └── rss.xml.ts       # RSS フィード
+├── data/                # プロフィール(profile.ts / profile.en.ts)
 ├── layouts/Layout.astro # 共通レイアウト(ヘッダー・View Transitions)
 ├── styles/global.css    # Tailwind 読み込み + @theme + ベーススタイル
-└── assets/fonts/        # OGP 用 Noto Sans CJK(otf)
-docs/draft.md            # サイト仕様書(ドラフト)
+└── assets/fonts/        # OGP 用 Noto Sans CJK(otf、SIL OFL 1.1)
+integrations/            # ビルド時に CSP などのセキュリティヘッダー(dist/_headers)を生成
+scripts/audit_deps.py    # 依存の脆弱性検査のラッパー
 ```
 
 ## 技術スタック
 
-| 項目             | 選定                                                           |
-| :--------------- | :------------------------------------------------------------- |
-| フレームワーク   | Astro 7.x(SSG、Content Collections + glob loader)              |
-| コンテンツ       | MDX(@astrojs/mdx)+ Zod による frontmatter 検証                 |
-| スタイリング     | Tailwind CSS 4.x(`@tailwindcss/vite`)+ @tailwindcss/typography |
-| コードハイライト | Shiki(ビルド時、ゼロ JS)                                       |
-| OGP 画像         | astro-og-canvas(ビルド時に静的 PNG 生成)                       |
-| サイトマップ     | @astrojs/sitemap                                               |
-| TypeScript       | `astro/tsconfigs/strict` 継承(strict モード)                   |
-| ランタイム / PM  | Bun                                                            |
-| ホスティング     | Cloudflare Pages(予定)                                         |
+| 項目             | 選定                                                            |
+| :--------------- | :-------------------------------------------------------------- |
+| フレームワーク   | Astro 7.x(SSG、Content Collections + glob loader)               |
+| コンテンツ       | MDX(@astrojs/mdx)+ Zod による frontmatter 検証                  |
+| スタイリング     | Tailwind CSS 4.x(`@tailwindcss/vite`)+ @tailwindcss/typography  |
+| コードハイライト | Shiki(ビルド時、ゼロ JS)                                        |
+| OGP 画像         | astro-og-canvas(ビルド時に静的 PNG 生成)                        |
+| サイトマップ     | @astrojs/sitemap                                                |
+| TypeScript       | `astro/tsconfigs/strict` 継承(strict モード)                    |
+| ランタイム / PM  | Bun                                                             |
+| ホスティング     | Cloudflare Workers(静的アセット)。main への push で自動デプロイ |
 
-> **Note:** `astro.config.mjs` の `site: 'https://example.com'` は独自ドメイン確定までのプレースホルダです。sitemap / OGP / RSS の絶対 URL 生成に使われるため、ドメイン確定後に差し替えます。
+## デプロイ
 
-## ドキュメント
+`main` に push すると `.github/workflows/deploy.yml` がビルドし、`wrangler deploy` で Cloudflare Workers に配信します(本番: https://hirotoyoshihara.dev )。Worker 名・カスタムドメインは `wrangler.jsonc` にあります。
 
-- サイト仕様書: [docs/draft.md](docs/draft.md)
-- 開発ルール(AI エージェント向け含む): [AGENTS.md](AGENTS.md)(`CLAUDE.md` はここへのシンボリックリンク)
+## ライセンス
+
+記事・プロフィールなどのコンテンツの権利は著者に帰属します。`src/assets/fonts/` の Noto Sans CJK は SIL Open Font License 1.1 です(`src/assets/fonts/LICENSE-NotoSansCJK.txt`)。
