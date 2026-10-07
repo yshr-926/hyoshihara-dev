@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>09 降下経路 — hirotoyoshihara.dev</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Martian+Mono:wght@400;500&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap"
+    />
+    <style>
+      /* レイアウト: 01(勾配降下)× 05(探索木)。等高線図そのものを目次にする。
+         SGD の軌跡の上に各セクションの通過点を置き、押すとそのセクションへ移動。通った道は実線、これから通る道は点線。
+         lg は左半分に地図を固定、狭い画面では地図を上部に小さく固定(ミニマップ) */
+      :root {
+        --paper: #f3f5f2;
+        --sheet: rgb(255 255 255 / 0.9);
+        --ink: #17201c;
+        --muted: #5b6862;
+        --contour: 34 92 78;
+        --path: #d2441f;
+        --line: rgb(23 32 28 / 0.14);
+        --font-body: 'Zen Kaku Gothic New', 'Hiragino Sans', 'Yu Gothic UI', sans-serif;
+        --font-mono: 'Martian Mono', ui-monospace, Menlo, monospace;
+        --map-h: 0px;
+        color-scheme: light;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) {
+          --paper: #0d1412; --sheet: rgb(16 25 22 / 0.9); --ink: #e1ebe6; --muted: #8fa39a;
+          --contour: 120 214 186; --path: #ff7a4d; --line: rgb(225 235 230 / 0.14); color-scheme: dark;
+        }
+      }
+      :root[data-theme='dark'] {
+        --paper: #0d1412; --sheet: rgb(16 25 22 / 0.9); --ink: #e1ebe6; --muted: #8fa39a;
+        --contour: 120 214 186; --path: #ff7a4d; --line: rgb(225 235 230 / 0.14); color-scheme: dark;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.8; letter-spacing: 0.02em; }
+      a { color: inherit; text-decoration-color: rgb(var(--contour) / 0.5); text-underline-offset: 4px; }
+      a:hover { text-decoration-color: var(--path); }
+      a:focus-visible, button:focus-visible { outline: 2px solid var(--path); outline-offset: 2px; border-radius: 2px; }
+
+      /* 地図 */
+      .map { position: fixed; z-index: 1; left: 0; top: 0; width: 52vw; height: 100vh; }
+      .map canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+      .readout { position: absolute; left: 20px; top: 20px; font-family: var(--font-mono); font-size: 11px; line-height: 1.7; color: var(--muted); font-variant-numeric: tabular-nums; pointer-events: none; }
+      .readout b { color: var(--ink); font-weight: 500; }
+      .readout .here { color: var(--path); font-family: var(--font-body); font-weight: 700; font-size: 13px; }
+      .wp { position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 6px; background: none; border: 0; padding: 6px; cursor: pointer; color: var(--muted); font: 500 12.5px/1 var(--font-body); white-space: nowrap; }
+      .wp .dot { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--path); background: var(--paper); flex: none; }
+      .wp.visited .dot { background: var(--path); }
+      .wp.current { color: var(--path); font-weight: 700; }
+      .wp.current .dot { box-shadow: 0 0 0 4px color-mix(in srgb, var(--path) 22%, transparent); }
+      .wp .lbl { padding: 2px 6px; background: var(--sheet); border-radius: 3px; }
+      .wp.left { flex-direction: row-reverse; transform: translate(calc(-100% + 13px), -50%); }
+      .wp.right { transform: translate(-13px, -50%); }
+      .wp:hover { color: var(--ink); }
+
+      main { position: relative; z-index: 2; padding-inline: 16px; padding-block: 32px 45vh; display: grid; gap: 64px; }
+      @media (min-width: 1000px) { main { margin-left: 54vw; max-width: 40rem; padding-inline: 0 32px; padding-block: 72px 50vh; } }
+      section { background: var(--sheet); backdrop-filter: blur(8px); border: 1px solid var(--line); padding: clamp(20px, 3vw, 32px); scroll-margin-top: calc(var(--map-h) + 24px); }
+      .crumb { font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin: 0 0 14px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; font-variant-numeric: tabular-nums; }
+      .crumb b { color: var(--path); font-weight: 500; }
+      h1 { font-size: clamp(44px, 9vw, 76px); font-weight: 900; line-height: 1; letter-spacing: -0.02em; margin: 0; }
+      .en { font-family: var(--font-mono); font-size: 13px; color: var(--muted); margin: 10px 0 0; letter-spacing: 0.06em; }
+      .role { margin: 28px 0 0; font-size: 20px; font-weight: 700; line-height: 1.4; }
+      .domain { margin: 2px 0 0; color: var(--muted); }
+      .intro { margin: 18px 0 0; font-size: 15px; color: var(--muted); }
+      h2 { font-size: 20px; margin: 0 0 18px; }
+      dl { margin: 0; display: grid; gap: 16px; }
+      dt { font-weight: 700; font-size: 15px; }
+      dd { margin: 4px 0 0; color: var(--muted); font-size: 14px; display: flex; flex-wrap: wrap; gap: 4px 18px; }
+      .lang, .updated { margin: 18px 0 0; font-size: 11px; color: var(--muted); font-family: var(--font-mono); }
+      ul { list-style: none; margin: 0; padding: 0; }
+      .projects { display: grid; gap: 20px; }
+      .projects h3 { margin: 0; font-size: 17px; }
+      .projects p { margin: 4px 0 0; font-size: 14px; color: var(--muted); line-height: 1.7; }
+      .stack { font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin-top: 6px; }
+      .links { font-size: 13px; display: flex; gap: 16px; margin-top: 4px; }
+      .rows { display: grid; gap: 10px; font-size: 15px; }
+      .rows li { display: grid; grid-template-columns: 9.5rem minmax(0, 1fr); gap: 12px; }
+      .rows time { font-family: var(--font-mono); font-size: 12px; color: var(--muted); padding-top: 3px; }
+      .now { color: var(--path); font-family: var(--font-body); }
+      .sub { font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin: 26px 0 10px; letter-spacing: 0.08em; }
+      .empty { font-size: 14px; color: var(--muted); margin: 0; }
+      .contacts { display: flex; flex-wrap: wrap; gap: 8px 24px; font-size: 15px; }
+      .contacts a { display: inline-flex; min-height: 44px; align-items: center; gap: 8px; }
+      .contacts small { color: var(--muted); font-size: 12px; }
+
+      /* 狭い画面: 地図を上部のミニマップにする。ラベルは現在地だけ出す */
+      @media (max-width: 999px) {
+        :root { --map-h: min(34vh, 230px); }
+        .map { position: sticky; top: env(safe-area-inset-top, 0px); width: 100%; height: var(--map-h); background: var(--paper); border-bottom: 1px solid var(--line); z-index: 5; }
+        .readout { left: 12px; top: 10px; font-size: 10px; }
+        .wp .lbl { display: none; }
+        .wp.current .lbl { display: inline; }
+        .wp { padding: 8px; }
+        .rows li { grid-template-columns: 1fr; gap: 0; }
+        main { padding-block: 24px 40vh; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="map" id="map">
+      <canvas id="land" aria-hidden="true"></canvas>
+      <canvas id="route" aria-hidden="true"></canvas>
+      <div class="readout" aria-hidden="true"><span class="here" id="here"></span><br />t = <b id="t">000</b> / <span id="n"></span> · L(θ) = <b id="l"></b></div>
+      <nav id="wps" aria-label="セクション(地図上の通過点)"></nav>
+    </div>
+    <main id="content"></main>
+
+    <script src="profile-data.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+    <script src="descent-core.js"></script>
+    <script>
+      const P = window.PROFILE, esc = window.esc, D = window.Descent;
+      const contacts = [...P.contacts].sort((a, b) => (b.primary ? 1 : 0) - (a.primary ? 1 : 0));
+
+      // 通過点 = セクション。道のりを等分した位置に置く
+      const S = [
+        { id: 'profile', name: 'θ₀ 初期値' },
+        { id: 'fields', name: '専門領域' },
+        { id: 'projects', name: '個人開発' },
+        { id: 'career', name: '経歴' },
+        { id: 'posts', name: '記事' },
+        { id: 'contact', name: 'θ* 連絡先' },
+      ].map((s, i, a) => ({ ...s, u: i / (a.length - 1), pt: D.at(i / (a.length - 1)) }));
+
+      const crumb = (i) => {
+        const p = S[i].pt;
+        const names = S.slice(1, i + 1).map((s) => s.name);
+        const trail = ['θ₀', ...names].map((n, k, a) => (k === a.length - 1 ? `<b>${n}</b>` : n)).join(' → ');
+        return `<p class="crumb" aria-hidden="true"><span>${trail}</span><span>t = ${String(Math.round(p.t)).padStart(3, '0')} · L = ${p.loss.toFixed(3)}</span></p>`;
+      };
+      document.getElementById('content').innerHTML = `
+        <section id="profile" aria-label="プロフィール">
+          ${crumb(0)}
+          <h1>${esc(P.fullNameJa)}</h1>
+          <p class="en" lang="en">${esc(P.fullName)}</p>
+          <p class="role">${esc(P.title)}</p>
+          <p class="domain">${esc(P.domain)}</p>
+          <p class="intro">${esc(P.intro)}</p>
+        </section>
+        <section id="fields" aria-labelledby="h-fields">
+          ${crumb(1)}
+          <h2 id="h-fields">専門領域</h2>
+          <dl>${P.fieldGroups.map((g) => `<div><dt>${esc(g.label)}</dt><dd>${g.items.map((i) => `<span>${esc(i)}</span>`).join('')}</dd></div>`).join('')}</dl>
+          <p class="lang">主な使用言語 ${P.languages.join(' / ')}</p>
+        </section>
+        <section id="projects" aria-labelledby="h-projects">
+          ${crumb(2)}
+          <h2 id="h-projects">個人開発</h2>
+          <ul class="projects">${P.projects.map((p) => `
+            <li>
+              <h3>${esc(p.name)}</h3>
+              <p>${esc(p.description)}</p>
+              <div class="stack">${p.stack.map(esc).join(' · ')}</div>
+              <div class="links"><a href="${p.href}">サイト</a>${p.repo ? `<a href="${p.repo}">リポジトリ</a>` : ''}</div>
+            </li>`).join('')}
+          </ul>
+        </section>
+        <section id="career" aria-labelledby="h-career">
+          ${crumb(3)}
+          <h2 id="h-career">経歴</h2>
+          <ul class="rows">${P.career.map((c) => `<li><time>${c.from} — <span class="now">${c.to}</span></time><span>${esc(c.company)} / ${esc(c.role)}</span></li>`).join('')}</ul>
+          <p class="sub" aria-hidden="true">EDUCATION</p>
+          <ul class="rows">${P.education.map((e) => `<li><time>${e.year}</time><span>${esc(e.school)} ${esc(e.status)}</span></li>`).join('')}</ul>
+          <p class="updated">最終更新 ${P.updatedAt}</p>
+        </section>
+        <section id="posts" aria-labelledby="h-posts">
+          ${crumb(4)}
+          <h2 id="h-posts">記事</h2>
+          <p class="empty">公開した記事はここに新しい順で並びます(現在 0 件)。</p>
+        </section>
+        <section id="contact" aria-labelledby="h-contact">
+          ${crumb(5)}
+          <h2 id="h-contact">連絡先</h2>
+          <ul class="contacts">${contacts.map((c) => `<li><a href="${c.href}" rel="me noopener">${esc(c.label)} <small>${esc(c.role)}</small></a></li>`).join('')}</ul>
+        </section>`;
+
+      // 地図上の通過点ボタン(押すとセクションへ)
+      const wpNav = document.getElementById('wps');
+      wpNav.innerHTML = S.map((s, i) => `<button type="button" class="wp" data-i="${i}" aria-label="${s.name}へ移動"><span class="dot"></span><span class="lbl">${s.name}</span></button>`).join('');
+      const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      wpNav.addEventListener('click', (e) => {
+        const b = e.target.closest('.wp');
+        if (b) document.getElementById(S[+b.dataset.i].id).scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+      });
+
+      // ---- 描画 ----
+      const mapEl = document.getElementById('map');
+      const land = document.getElementById('land'), route = document.getElementById('route');
+      const lctx = land.getContext('2d'), rctx = route.getContext('2d');
+      const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+      let view;
+      const toPx = (x, y) => [view.cx + x * view.scale, view.cy - y * view.scale];
+
+      function layout() {
+        const W = mapEl.clientWidth, H = mapEl.clientHeight;
+        const dpr = Math.min(devicePixelRatio || 1, 2);
+        for (const c of [land, route]) { c.width = W * dpr; c.height = H * dpr; }
+        // 軌跡の外接矩形が収まるように拡大率を決める(上はラベル・数値のぶん余白を広めに)
+        const wide = innerWidth >= 1000;
+        const pad = wide ? { l: 90, r: 90, t: 90, b: 60 } : { l: 24, r: 24, t: 34, b: 14 };
+        const b = D.bbox;
+        const scale = Math.min((W - pad.l - pad.r) / (b.x1 - b.x0), (H - pad.t - pad.b) / (b.y1 - b.y0));
+        const cx = pad.l + ((W - pad.l - pad.r) - (b.x1 - b.x0) * scale) / 2 - b.x0 * scale;
+        const cy = pad.t + ((H - pad.t - pad.b) - (b.y1 - b.y0) * scale) / 2 + b.y1 * scale;
+        view = { W, H, dpr, scale, cx, cy };
+        D.drawContours(lctx, view, css('--contour'));
+        // ラベルは地図の右寄りなら左に出す
+        wpNav.querySelectorAll('.wp').forEach((el, i) => {
+          const [px, py] = toPx(S[i].pt.x, S[i].pt.y);
+          el.style.left = `${px}px`; el.style.top = `${py}px`;
+          el.classList.toggle('left', px > W * 0.6);
+          el.classList.toggle('right', px <= W * 0.6);
+        });
+        measure();
+        draw();
+      }
+
+      // スクロール位置 → 道のりの割合 u。各セクションの上端が通過点に対応する
+      let anchors = [];
+      function measure() {
+        const mapH = innerWidth >= 1000 ? 0 : mapEl.clientHeight;
+        const offset = mapH + (innerHeight - mapH) * 0.3;
+        const max = document.documentElement.scrollHeight - innerHeight;
+        anchors = S.map((s) => document.getElementById(s.id).getBoundingClientRect().top + scrollY - offset);
+        // 最後のほうのセクションが画面の下端から上がりきらなくても θ* に着くよう、届く範囲に詰める
+        for (let i = anchors.length - 1; i >= 0; i--) anchors[i] = Math.min(anchors[i], max - (anchors.length - 1 - i) * 40);
+        // 先頭はページ最上部で t = 0 から始める。あとは単調に増えるように整える
+        anchors[0] = 0;
+        for (let i = 1; i < anchors.length; i++) anchors[i] = Math.max(anchors[i], anchors[i - 1] + 1);
+      }
+      function progress() {
+        const y = scrollY;
+        if (y <= anchors[0]) return { u: 0, cur: 0 };
+        for (let i = 0; i < anchors.length - 1; i++) {
+          if (y < anchors[i + 1]) {
+            const k = (y - anchors[i]) / Math.max(1, anchors[i + 1] - anchors[i]);
+            return { u: (i + k) / (S.length - 1), cur: i };
+          }
+        }
+        return { u: 1, cur: S.length - 1 };
+      }
+
+      function draw() {
+        const { u, cur } = progress();
+        const here = D.at(u);
+        const color = css('--path'), rgb = css('--contour');
+        rctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+        rctx.clearRect(0, 0, view.W, view.H);
+        rctx.lineJoin = 'round';
+        // これから通る道(点線)
+        rctx.setLineDash([3, 5]);
+        rctx.strokeStyle = `rgb(${rgb} / 0.55)`;
+        rctx.lineWidth = 1.2;
+        rctx.beginPath();
+        D.traj.forEach((p, i) => { if (i < here.i) return; const [px, py] = toPx(...p); i === here.i ? rctx.moveTo(...toPx(here.x, here.y)) : rctx.lineTo(px, py); });
+        rctx.stroke();
+        // 通った道(実線)
+        rctx.setLineDash([]);
+        rctx.strokeStyle = color;
+        rctx.lineWidth = 2;
+        rctx.beginPath();
+        for (let i = 0; i <= here.i; i++) { const [px, py] = toPx(...D.traj[i]); i ? rctx.lineTo(px, py) : rctx.moveTo(px, py); }
+        rctx.lineTo(...toPx(here.x, here.y));
+        rctx.stroke();
+        // 大域最小の印
+        const [mx, my] = toPx(...D.MIN);
+        rctx.strokeStyle = `rgb(${rgb} / 0.9)`; rctx.lineWidth = 1;
+        rctx.beginPath(); rctx.moveTo(mx - 6, my); rctx.lineTo(mx + 6, my); rctx.moveTo(mx, my - 6); rctx.lineTo(mx, my + 6); rctx.stroke();
+        // 現在地
+        const [hx, hy] = toPx(here.x, here.y);
+        rctx.fillStyle = color;
+        rctx.beginPath(); rctx.arc(hx, hy, 6, 0, Math.PI * 2); rctx.fill();
+        // 通過点の状態と読み出し
+        wpNav.querySelectorAll('.wp').forEach((el, i) => {
+          el.classList.toggle('visited', S[i].u <= u + 1e-6);
+          el.classList.toggle('current', i === cur);
+          el.toggleAttribute('aria-current', i === cur);
+        });
+        document.getElementById('here').textContent = S[cur].name;
+        document.getElementById('t').textContent = String(Math.round(here.t)).padStart(3, '0');
+        document.getElementById('n').textContent = D.N;
+        document.getElementById('l').textContent = here.loss.toFixed(4);
+      }
+
+      let raf = 0;
+      addEventListener('scroll', () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(draw); }, { passive: true });
+      addEventListener('resize', layout);
+      matchMedia('(prefers-color-scheme: dark)').addEventListener('change', layout);
+      new MutationObserver(layout).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+      document.fonts.ready.then(layout);
+      layout();
+    </script>
+  </body>
+</html>

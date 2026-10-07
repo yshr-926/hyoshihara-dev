@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>10 降下ログ — hirotoyoshihara.dev</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=BIZ+UDGothic:wght@400;700&display=swap"
+    />
+    <style>
+      /* レイアウト: 01(勾配降下)× 04(学習ログ)。左に等高線図と train/loss の曲線を固定し、右の本文は学習ジョブの出力として組む。
+         セクション = epoch。スクロールすると点が谷へ進み、損失曲線の上の現在地も一緒に動く。
+         狭い画面では地図を上部のミニマップにし、損失曲線はその右下に小さく重ねる */
+      :root {
+        --bg: #f4f2ee;
+        --panel: #ebe8e1;
+        --fg: #2a2723;
+        --dim: #77716a;
+        --key: #2f6f8f;
+        --str: #3f7d3a;
+        --num: #b4501a;
+        --contour: 47 111 143;
+        --line: rgb(42 39 35 / 0.14);
+        --bar: #2a2723;
+        --bar-fg: #f4f2ee;
+        --font: 'JetBrains Mono', 'BIZ UDGothic', ui-monospace, Menlo, monospace;
+        --map-h: 0px;
+        color-scheme: light;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) {
+          --bg: #101214; --panel: #171a1d; --fg: #d6dbe0; --dim: #6f7881; --key: #7cc4e6; --str: #a7d98b; --num: #f2a65a;
+          --contour: 124 196 230; --line: rgb(214 219 224 / 0.12); --bar: #a7d98b; --bar-fg: #101214; color-scheme: dark;
+        }
+      }
+      :root[data-theme='dark'] {
+        --bg: #101214; --panel: #171a1d; --fg: #d6dbe0; --dim: #6f7881; --key: #7cc4e6; --str: #a7d98b; --num: #f2a65a;
+        --contour: 124 196 230; --line: rgb(214 219 224 / 0.12); --bar: #a7d98b; --bar-fg: #101214; color-scheme: dark;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 14px; line-height: 1.75; padding-bottom: 40px; }
+      a { color: var(--fg); text-decoration: underline; text-decoration-color: var(--dim); text-underline-offset: 3px; }
+      a:hover { color: var(--key); text-decoration-color: var(--key); }
+      a:focus-visible { outline: 2px solid var(--key); outline-offset: 2px; }
+
+      .map { position: fixed; left: 0; top: 0; width: 48vw; height: calc(100vh - 32px); border-right: 1px solid var(--line); }
+      .map canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+      .loss { position: absolute; left: 20px; bottom: 20px; width: min(320px, calc(100% - 40px)); background: var(--bg); border: 1px solid var(--line); padding: 8px 10px 4px; }
+      .loss h2 { margin: 0; font-size: 11px; font-weight: 400; color: var(--dim); display: flex; justify-content: space-between; gap: 8px; font-variant-numeric: tabular-nums; }
+      .loss h2 b { color: var(--num); font-weight: 500; }
+      .loss svg { display: block; width: 100%; height: auto; }
+
+      .term { padding-inline: 16px; padding-block: 28px 45vh; display: grid; gap: 30px; max-width: 46rem; }
+      @media (min-width: 1000px) { .term { margin-left: 48vw; padding-inline: 40px; padding-block: 40px 50vh; } }
+      .prompt { color: var(--dim); margin: 0; white-space: pre-wrap; word-break: break-all; }
+      .prompt b { color: var(--str); font-weight: 500; }
+      .prompt .cmd { color: var(--fg); }
+      h1 { font-size: clamp(30px, 5vw, 44px); line-height: 1.15; margin: 0; font-weight: 700; }
+      h1 .en { display: block; font-size: 14px; font-weight: 400; color: var(--dim); margin-top: 8px; }
+      pre.yaml { margin: 0; background: var(--panel); border: 1px solid var(--line); padding: 14px 16px; overflow-x: auto; white-space: pre-wrap; word-break: break-word; font: inherit; font-size: 13px; }
+      .k { color: var(--key); } .s { color: var(--str); } .n { color: var(--num); } .c { color: var(--dim); }
+      .epoch { display: grid; gap: 10px; scroll-margin-top: calc(var(--map-h) + 16px); }
+      .epoch h2 { font-size: 14px; font-weight: 400; margin: 0; display: flex; flex-wrap: wrap; gap: 2px 14px; color: var(--dim); font-variant-numeric: tabular-nums; }
+      .epoch h2 .tag { color: var(--fg); font-weight: 700; }
+      .epoch.current h2 .tag { color: var(--num); }
+      .pbar { color: var(--str); letter-spacing: -0.05em; }
+      .out { border-left: 1px solid var(--line); padding-left: 16px; margin-left: 4px; display: grid; gap: 6px; }
+      .epoch.current .out { border-left-color: var(--num); }
+      .out p { margin: 0; }
+      .row { display: grid; grid-template-columns: 9.5rem minmax(0, 1fr); gap: 12px; }
+      .row .lbl { color: var(--dim); }
+      .proj { display: grid; gap: 2px; padding: 4px 0; }
+      .proj .nm { font-weight: 700; }
+      .proj .d { color: var(--dim); }
+      .ok { color: var(--str); }
+      .contacts a { display: inline-flex; min-height: 40px; align-items: center; gap: 8px; margin-right: 18px; }
+      .contacts span { color: var(--dim); font-size: 12px; }
+      .status { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--bar); color: var(--bar-fg); display: flex; justify-content: space-between; gap: 12px; padding: 6px 16px calc(6px + env(safe-area-inset-bottom, 0px)); font-size: 12px; white-space: nowrap; overflow: hidden; font-variant-numeric: tabular-nums; }
+      .status nav { display: flex; overflow-x: auto; }
+      .status a { color: var(--bar-fg); text-decoration: none; padding: 0 8px; }
+      .status a[aria-current='true'] { background: var(--bar-fg); color: var(--bar); }
+
+      @media (max-width: 999px) {
+        :root { --map-h: min(32vh, 220px); }
+        .map { position: sticky; top: env(safe-area-inset-top, 0px); width: 100%; height: var(--map-h); background: var(--bg); border-right: 0; border-bottom: 1px solid var(--line); z-index: 5; }
+        .loss { left: auto; right: 8px; bottom: 8px; width: 150px; padding: 4px 6px 2px; }
+        .loss h2 span:first-child { display: none; }
+        .row { grid-template-columns: 1fr; gap: 0; }
+        .status .right { display: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="map" id="map">
+      <canvas id="land" aria-hidden="true"></canvas>
+      <canvas id="route" aria-hidden="true"></canvas>
+      <figure class="loss" style="margin:0" aria-hidden="true">
+        <h2><span>train/loss</span><span>step <b id="t">000</b> · <b id="l"></b></span></h2>
+        <svg id="curve" viewBox="0 0 300 96"></svg>
+      </figure>
+    </div>
+    <main class="term" id="term"></main>
+    <div class="status">
+      <nav aria-label="セクション" id="tabs"></nav>
+      <span class="right" id="status-right"></span>
+    </div>
+
+    <script src="profile-data.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+    <script src="descent-core.js"></script>
+    <script>
+      const P = window.PROFILE, esc = window.esc, D = window.Descent;
+      const contacts = [...P.contacts].sort((a, b) => (b.primary ? 1 : 0) - (a.primary ? 1 : 0));
+
+      // epoch = セクション。道のりを等分した位置で区切る
+      const S = [
+        { id: 'e0', tab: 'init', name: '初期化' },
+        { id: 'e1', tab: 'fields', name: '専門領域' },
+        { id: 'e2', tab: 'projects', name: '個人開発' },
+        { id: 'e3', tab: 'career', name: '経歴' },
+        { id: 'e4', tab: 'posts', name: '記事' },
+        { id: 'e5', tab: 'contact', name: '連絡先' },
+      ].map((s, i, a) => ({ ...s, u: i / (a.length - 1), pt: D.at(i / (a.length - 1)) }));
+      const E = S.length - 1;
+      const pbar = (i) => '█'.repeat(i * 3) + '░'.repeat((E - i) * 3);
+
+      const yaml = [
+        ['# config/hiroto.yaml'],
+        ['name', P.fullNameJa], ['name_en', P.fullName], ['role', P.title], ['objective', P.domain],
+        ['affiliation', P.career[0].company], ['optimizer', 'SGD(momentum=0.85)', true], ['lang', `[${P.languages.join(', ')}]`, true],
+      ].map(([k, v, raw]) => (v === undefined ? `<span class="c">${esc(k)}</span>` : `<span class="k">${k}</span>: ${raw ? `<span class="n">${esc(v)}</span>` : `<span class="s">"${esc(v)}"</span>`}`)).join('\n');
+
+      const epoch = (i, body) => {
+        const s = S[i];
+        return `<section class="epoch" id="${s.id}" aria-labelledby="${s.id}-h">
+          <h2 id="${s.id}-h"><span>epoch ${i}/${E}</span><span class="tag">${s.name}</span><span class="pbar" aria-hidden="true">${pbar(i)}</span><span aria-hidden="true">step=${String(Math.round(s.pt.t)).padStart(3, '0')} loss=<span class="n">${s.pt.loss.toFixed(4)}</span></span></h2>
+          <div class="out">${body}</div></section>`;
+      };
+      document.getElementById('term').innerHTML = `
+        ${epoch(0, `
+          <p class="prompt"><b>hiroto@dev</b>:~$ <span class="cmd">python descend.py --config config/hiroto.yaml</span></p>
+          <h1>${esc(P.fullNameJa)}<span class="en" lang="en">${esc(P.fullName)} — ${esc(P.title)}</span></h1>
+          <p style="color:var(--dim)">${esc(P.intro)}</p>
+          <pre class="yaml" aria-label="プロフィールの設定">${yaml}</pre>`)}
+        ${epoch(1, P.fieldGroups.map((g) => `<p class="row"><span class="lbl">${esc(g.label)}</span><span>${g.items.map(esc).join(' · ')}</span></p>`).join(''))}
+        ${epoch(2, P.projects.map((p) => `<div class="proj"><span><a class="nm" href="${p.href}">${esc(p.name)}</a>${p.repo ? ` <a href="${p.repo}" style="color:var(--dim)">[src]</a>` : ''}</span><span class="d">${esc(p.description)}</span><span class="c">stack=${p.stack.map(esc).join(',')}</span></div>`).join(''))}
+        ${epoch(3, [
+          ...P.career.map((c) => `<p class="row"><span class="lbl">${c.from}–<span class="ok">${c.to}</span></span><span>${esc(c.company)} / ${esc(c.role)}</span></p>`),
+          ...P.education.map((e) => `<p class="row"><span class="lbl">${e.year}</span><span>${esc(e.school)} ${esc(e.status)}</span></p>`),
+          `<p class="c">updated_at=${P.updatedAt}</p>`,
+        ].join(''))}
+        ${epoch(4, `<p class="c">INFO: 公開記事 0 件。公開するとここに新しい順で並びます。</p>`)}
+        ${epoch(5, `
+          <p class="ok">✓ converged. θ* に到達しました。</p>
+          <p class="contacts">${contacts.map((c) => `<a href="${c.href}" rel="me noopener">${esc(c.label)} <span>${esc(c.role)}</span></a>`).join('')}</p>`)}`;
+      document.getElementById('tabs').innerHTML = S.map((s, i) => `<a href="#${s.id}">[${i}] ${s.tab}</a>`).join('');
+      document.getElementById('status-right').textContent = `${P.siteName} · ${P.updatedAt}`;
+
+      // ---- 損失曲線(軌跡に沿った実際の L(θ))----
+      const svg = document.getElementById('curve');
+      const CW = 300, CH = 96, pad = { l: 28, r: 6, t: 6, b: 16 };
+      const losses = D.traj.map((p) => D.f(p[0], p[1]));
+      const lmax = Math.ceil(Math.max(...losses) * 2) / 2, lmin = Math.floor(Math.min(...losses) * 2) / 2;
+      const CX = (t) => pad.l + (t / D.N) * (CW - pad.l - pad.r);
+      const CY = (v) => pad.t + (1 - (v - lmin) / (lmax - lmin)) * (CH - pad.t - pad.b);
+      const curveD = losses.map((v, i) => `${i ? 'L' : 'M'}${CX(i).toFixed(1)},${CY(v).toFixed(1)}`).join('');
+      const yt = [lmin, 0, lmax].map((v) => `<line x1="${pad.l}" x2="${CW - pad.r}" y1="${CY(v)}" y2="${CY(v)}" stroke="var(--line)" /><text x="${pad.l - 4}" y="${CY(v) + 3}" text-anchor="end" font-size="8" fill="var(--dim)">${v.toFixed(1)}</text>`).join('');
+      const xt = S.map((s, i) => `<line x1="${CX(s.pt.t)}" x2="${CX(s.pt.t)}" y1="${CH - pad.b}" y2="${CH - pad.b + 3}" stroke="var(--dim)" /><text x="${CX(s.pt.t)}" y="${CH - 3}" text-anchor="middle" font-size="8" fill="var(--dim)">${i}</text>`).join('');
+      svg.innerHTML = `${yt}${xt}<path d="${curveD}" fill="none" stroke="var(--dim)" stroke-width="1" opacity="0.5" /><path id="done" fill="none" stroke="var(--num)" stroke-width="1.6" /><circle id="cur" r="3" fill="var(--num)" />`;
+
+      // ---- 地図 ----
+      const mapEl = document.getElementById('map');
+      const land = document.getElementById('land'), route = document.getElementById('route');
+      const lctx = land.getContext('2d'), rctx = route.getContext('2d');
+      const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+      let view;
+      const toPx = (x, y) => [view.cx + x * view.scale, view.cy - y * view.scale];
+      function layout() {
+        const W = mapEl.clientWidth, H = mapEl.clientHeight, dpr = Math.min(devicePixelRatio || 1, 2);
+        for (const c of [land, route]) { c.width = W * dpr; c.height = H * dpr; }
+        const wide = innerWidth >= 1000;
+        // 下の損失曲線パネルと重ならないよう、広い画面では下の余白を大きめにとる
+        const pad = wide ? { l: 60, r: 60, t: 50, b: 170 } : { l: 20, r: 170, t: 16, b: 16 };
+        const b = D.bbox;
+        const scale = Math.min((W - pad.l - pad.r) / (b.x1 - b.x0), (H - pad.t - pad.b) / (b.y1 - b.y0));
+        const cx = pad.l + ((W - pad.l - pad.r) - (b.x1 - b.x0) * scale) / 2 - b.x0 * scale;
+        const cy = pad.t + ((H - pad.t - pad.b) - (b.y1 - b.y0) * scale) / 2 + b.y1 * scale;
+        view = { W, H, dpr, scale, cx, cy };
+        D.drawContours(lctx, view, css('--contour'), { strong: 0.45, weak: 0.18 });
+        measure(); draw();
+      }
+      let anchors = [];
+      function measure() {
+        const mapH = innerWidth >= 1000 ? 0 : mapEl.clientHeight;
+        const offset = mapH + (innerHeight - mapH) * 0.3;
+        const max = document.documentElement.scrollHeight - innerHeight;
+        anchors = S.map((s) => document.getElementById(s.id).getBoundingClientRect().top + scrollY - offset);
+        for (let i = anchors.length - 1; i >= 0; i--) anchors[i] = Math.min(anchors[i], max - (anchors.length - 1 - i) * 40);
+        // 先頭はページ最上部で t = 0 から始める。あとは単調に増えるように整える
+        anchors[0] = 0;
+        for (let i = 1; i < anchors.length; i++) anchors[i] = Math.max(anchors[i], anchors[i - 1] + 1);
+      }
+      function progress() {
+        const y = scrollY;
+        if (y <= anchors[0]) return { u: 0, cur: 0 };
+        for (let i = 0; i < anchors.length - 1; i++)
+          if (y < anchors[i + 1]) return { u: (i + (y - anchors[i]) / Math.max(1, anchors[i + 1] - anchors[i])) / E, cur: i };
+        return { u: 1, cur: E };
+      }
+      function draw() {
+        const { u, cur } = progress();
+        const here = D.at(u);
+        const color = css('--num'), rgb = css('--contour');
+        rctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+        rctx.clearRect(0, 0, view.W, view.H);
+        rctx.lineJoin = 'round';
+        rctx.strokeStyle = color; rctx.lineWidth = 1.8;
+        rctx.beginPath();
+        for (let i = 0; i <= here.i; i++) { const [px, py] = toPx(...D.traj[i]); i ? rctx.lineTo(px, py) : rctx.moveTo(px, py); }
+        rctx.lineTo(...toPx(here.x, here.y));
+        rctx.stroke();
+        // epoch の区切り(番号付き)
+        rctx.font = `10px ${css('--font')}`;
+        S.forEach((s, i) => {
+          const [px, py] = toPx(s.pt.x, s.pt.y);
+          const done = s.u <= u + 1e-6;
+          rctx.fillStyle = done ? color : css('--bg');
+          rctx.strokeStyle = done ? color : `rgb(${rgb} / 0.8)`;
+          rctx.lineWidth = 1.2;
+          rctx.beginPath(); rctx.rect(px - 3.5, py - 3.5, 7, 7); rctx.fill(); rctx.stroke();
+          rctx.fillStyle = done ? color : `rgb(${rgb} / 0.9)`;
+          rctx.fillText(`e${i}`, px + 7, py - 6);
+        });
+        const [hx, hy] = toPx(here.x, here.y);
+        rctx.fillStyle = color;
+        rctx.beginPath(); rctx.arc(hx, hy, 5.5, 0, Math.PI * 2); rctx.fill();
+        // 損失曲線の進み具合
+        const ti = Math.max(1, Math.ceil(here.t));
+        document.getElementById('done').setAttribute('d', losses.slice(0, ti + 1).map((v, i) => `${i ? 'L' : 'M'}${CX(i).toFixed(1)},${CY(v).toFixed(1)}`).join(''));
+        const c = document.getElementById('cur');
+        c.setAttribute('cx', CX(here.t)); c.setAttribute('cy', CY(here.loss));
+        document.getElementById('t').textContent = String(Math.round(here.t)).padStart(3, '0');
+        document.getElementById('l').textContent = here.loss.toFixed(4);
+        document.querySelectorAll('.epoch').forEach((el, i) => el.classList.toggle('current', i === cur));
+        document.querySelectorAll('#tabs a').forEach((a, i) => a.setAttribute('aria-current', i === cur));
+      }
+      let raf = 0;
+      addEventListener('scroll', () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(draw); }, { passive: true });
+      addEventListener('resize', layout);
+      matchMedia('(prefers-color-scheme: dark)').addEventListener('change', layout);
+      new MutationObserver(layout).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+      document.fonts.ready.then(layout);
+      layout();
+    </script>
+  </body>
+</html>
