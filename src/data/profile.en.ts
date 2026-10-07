@@ -10,15 +10,12 @@ export const profileEn = {
   /** 職種 */
   title: 'AI Engineer',
   /** 専門領域(英語読者向け、1 行) */
-  domain: 'Spatial optimization and AI agent development',
-  /** domain の文中埋め込み用(文頭でないので小文字始まり)。AI 等の頭字語はそのまま保つ */
-  domainInline: 'spatial optimization and AI agent development',
+  domain: 'Domain-driven algorithm development',
+  /** domain の文中埋め込み用(文頭でないので小文字始まり) */
+  domainInline: 'domain-driven algorithm development',
   /** 事実ベースの自己紹介 1〜2 文。宣伝表現なし */
   intro:
-    "I'm an AI engineer at HEROZ, Inc. I work on spatial optimization and AI agent development.",
-  /** 「空間最適化」が何を指すかの 1 文(非専門家向け) */
-  domainNote:
-    'Spatial optimization here means deciding where rooms and equipment go under regulatory and dimensional constraints, as in residential floor plans.',
+    "I'm an AI engineer at HEROZ, Inc. I formalize the constraints and objectives of a problem domain and design algorithms on top of them.",
   /** プロフィール内容を最後に更新した日(ISO 日付、profile.ts と共有) */
   updatedAt: profile.updatedAt,
 } as const;
@@ -98,11 +95,15 @@ export const educationEn: EducationEntryEn[] = education.map((entry) => ({
   status: EDUCATION_EN[entry.id].status,
 }));
 
-/** 専門領域を 2 群に分けたもの(英語ラベル・英語語) */
+/** 専門領域を 3 群に分けたもの(英語ラベル・英語語)。profile.ts の fieldGroups と群・順序を揃える */
 export const fieldGroupsEn: { label: string; items: string[] }[] = [
   {
     label: 'Search & Optimization',
     items: ['Constraint Satisfaction', 'Computational Geometry', 'Combinatorial Search'],
+  },
+  {
+    label: 'Machine Learning & Deep Learning',
+    items: ['Stochastic Optimization', 'Deep Learning Theory', 'Model Training & Evaluation'],
   },
   { label: 'AI Agents', items: ['RAG', 'LLM Evaluation', 'LLM Orchestration'] },
 ];
@@ -112,8 +113,6 @@ export const languagesEn: string[] = ['Python'];
 
 /** UI 文言(en/index.astro 側で使う、Layout の辞書とは別枠) */
 export const uiEn = {
-  contactLead: 'For work inquiries, please reach out via',
-  contactLeadTail: '.',
   fieldsLabel: 'FIELDS',
   fieldsHeading: 'Fields',
   languagesLead: 'Primary language',

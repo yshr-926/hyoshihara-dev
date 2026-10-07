@@ -3,8 +3,7 @@ import '@fontsource/ibm-plex-mono/400.css';
 import '@fontsource/ibm-plex-mono/500.css';
 import '../styles/global.css';
 import { ClientRouter } from 'astro:transitions';
-import { contacts, profile } from '../data/profile';
-import { contactsEn } from '../data/profile.en';
+import { profile } from '../data/profile';
 
 interface Props {
   title: string;
@@ -17,7 +16,8 @@ interface Props {
   ogType?: 'website' | 'article';
   /** <html lang> と、ヘッダー・フッター・スキップリンク・テーマ操作の UI 文言。既定 'ja' */
   lang?: 'ja' | 'en';
-  /** 翻訳ページ。渡すとヘッダーに言語切替リンク、head に hreflang(self + alternate + x-default)を出す */
+  /** 翻訳ページ。渡すと head に hreflang(self + alternate + x-default)を出し、ヘッダーの言語切替もここへ向ける。
+   *  渡さないページ(記事など日本語のみ)でも言語切替リンクは消さず、相手言語のトップへ送る */
   alternate?: { lang: 'ja' | 'en'; href: string };
   /** JSON-LD。オブジェクトか配列。<script type="application/ld+json"> で出力 */
   structuredData?: Record<string, unknown> | Record<string, unknown>[];
@@ -41,7 +41,7 @@ const ogImageUrl = ogImage ? new URL(ogImage, Astro.site ?? Astro.url).href : un
 // TODO: astro.config.mjs の site が独自ドメイン確定までの仮値のため、canonical / og:url も暫定
 const canonicalUrl = new URL(Astro.url.pathname, Astro.site ?? Astro.url).href;
 
-// UI 文言。lang で切り替える辞書(ナビ・スキップリンク・テーマ操作・フッター)。
+// UI 文言。lang で切り替える辞書(ナビ・スキップリンク・テーマ操作)。
 // テーマの状態ラベル・読み上げ文言は client 側 script でも同じ形で再定義している(SSR と実行時で lang の扱いが分かれるため)
 const UI = {
   ja: {
@@ -50,8 +50,6 @@ const UI = {
     navPosts: '記事',
     switchTo: { ja: '日本語', en: 'English' },
     themeAriaLabel: '表示テーマを切り替える',
-    subscribe: '更新を購読',
-    rss: 'RSS',
   },
   en: {
     skipLink: 'Skip to content',
@@ -59,8 +57,6 @@ const UI = {
     navPosts: 'Posts',
     switchTo: { ja: '日本語', en: 'English' },
     themeAriaLabel: 'Toggle display theme',
-    subscribe: 'Subscribe',
-    rss: 'RSS',
   },
 } as const;
 const t = UI[lang];
@@ -73,6 +69,10 @@ const t = UI[lang];
 const normalizePath = (path: string) => (path === '/' ? path : path.replace(/\/+$/, ''));
 const currentPath = normalizePath(Astro.url.pathname) || '/';
 const homeHref = lang === 'en' ? '/en/' : '/';
+// ヘッダーの言語切替。翻訳ページがあればそこへ、無ければ相手言語のトップへ(英語版から記事一覧へ移った
+// あとも英語版へ戻れるように、リンク自体は常に出す)。hreflang の meta は本当の翻訳があるときだけ(上の alternate)
+const otherLang = lang === 'en' ? 'ja' : 'en';
+const langSwitch = alternate ?? { lang: otherLang, href: otherLang === 'en' ? '/en/' : '/' };
 const isCurrent = (href: string) => {
   const normalizedHref = normalizePath(href) || '/';
   return (
@@ -85,13 +85,6 @@ const navItems = [
   { href: '/blog', label: t.navPosts },
 ];
 
-// フッターの連絡先は src/data/profile.ts の contacts を使う(トップと二重管理しない)。
-// lang='en' のときは役割ラベルだけ profile.en.ts の contactsEn(英語)に差し替える(href/handle は共通)。
-// 別タブでは開かない(採用担当がタブを見失う)。rel="me" は同一人物のプロフィールである宣言(メールには付けない)
-// primary を先頭にする
-const orderedContacts = [...(lang === 'en' ? contactsEn : contacts)].sort(
-  (a, b) => Number(b.primary ?? false) - Number(a.primary ?? false),
-);
 const year = new Intl.DateTimeFormat('en', { timeZone: 'Asia/Tokyo', year: 'numeric' }).format(
   new Date(),
 );
@@ -236,25 +229,21 @@ const contentSwap = {
               </li>
             ))
           }
-          {
-            alternate && (
-              <li>
-                <a
-                  href={alternate.href}
-                  hreflang={alternate.lang}
-                  aria-label={t.switchTo[alternate.lang]}
-                  class="inline-flex min-h-11 items-center rounded-sm px-2 font-mono text-xs text-ink-muted transition-colors duration-200 ease-out-strong hover:text-ink active:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
-                >
-                  <span aria-hidden="true" class="sm:hidden">
-                    {alternate.lang.toUpperCase()}
-                  </span>
-                  <span aria-hidden="true" class="hidden sm:inline">
-                    {t.switchTo[alternate.lang]}
-                  </span>
-                </a>
-              </li>
-            )
-          }
+          <li>
+            <a
+              href={langSwitch.href}
+              hreflang={langSwitch.lang}
+              aria-label={t.switchTo[langSwitch.lang]}
+              class="inline-flex min-h-11 items-center rounded-sm px-2 font-mono text-xs text-ink-muted transition-colors duration-200 ease-out-strong hover:text-ink active:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
+            >
+              <span aria-hidden="true" class="sm:hidden">
+                {langSwitch.lang.toUpperCase()}
+              </span>
+              <span aria-hidden="true" class="hidden sm:inline">
+                {t.switchTo[langSwitch.lang]}
+              </span>
+            </a>
+          </li>
           <li class="-mr-3">
             {
               /* 3 状態(ライト / ダーク / 端末に合わせる)を巡回するトグル。
@@ -320,40 +309,12 @@ const contentSwap = {
       <slot />
     </main>
     {
-      /* フッターは 2 行: 連絡先(役割 + リンク)と ©。
-        各リンクは 44px 角以上の操作領域(min-h-11 min-w-11 + 横 padding)。
-        横 padding ぶんはリストの負マージンで相殺し、先頭の文字位置を本文と揃える。
-        上の罫線は px-4 の内側(div)に引き、本文・セクション罫線と左右端を揃える(footer 自体に引くと
-        枠の padding ぶん外へはみ出し、罫線の端がページ内で揃わない) */
+      /* フッターは © の 1 行だけ(連絡先はトップの氏名ブロックにあるので重ねない)。
+        上の罫線は px-4 の内側(div)に引き、本文・セクション罫線と左右端を揃える */
     }
-    <footer class="mx-auto w-full max-w-site px-4 pb-10 text-sm">
+    <footer class="mx-auto w-full max-w-site px-4 pb-10">
       <div class="border-t border-line pt-6">
-        <ul class="-mx-2 flex flex-wrap items-center gap-x-1 gap-y-1">
-          {
-            orderedContacts.map(({ label, href, role }) => (
-              <li class="inline-flex items-center gap-1.5 px-2">
-                {role && <span class="text-ink-muted">{role}</span>}
-                <a
-                  href={href}
-                  rel="me noopener"
-                  class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-sm px-2 -mx-2 text-cobalt underline decoration-cobalt/40 underline-offset-4 transition-colors duration-200 ease-out-strong hover:text-ink hover:decoration-current active:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
-                >
-                  {label}
-                </a>
-              </li>
-            ))
-          }
-          <li class="inline-flex items-center gap-1.5 px-2">
-            <span class="text-ink-muted">{t.subscribe}</span>
-            <a
-              href="/rss.xml"
-              class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-sm px-2 -mx-2 text-cobalt underline decoration-cobalt/40 underline-offset-4 transition-colors duration-200 ease-out-strong hover:text-ink hover:decoration-current active:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
-            >
-              {t.rss}
-            </a>
-          </li>
-        </ul>
-        <p class="mt-2 font-mono text-xs text-ink-muted">© {year} {profile.handle}</p>
+        <p class="font-mono text-xs text-ink-muted">© {year} {profile.fullName}</p>
       </div>
     </footer>
     <script>

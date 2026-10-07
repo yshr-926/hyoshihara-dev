@@ -1,6 +1,7 @@
 ---
 import { getCollection } from 'astro:content';
 import Layout from '../../layouts/Layout.astro';
+import ContactIcon from '../../components/ContactIcon.astro';
 import {
   careerEn,
   contactsEn,
@@ -24,7 +25,7 @@ const featuredPosts = (
   .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
   .slice(0, 2);
 
-// 主連絡先(1 件だけ true)。氏名ブロックの案内行と、連絡先リストの先頭に使う
+// 主連絡先(1 件だけ true)。連絡先リストの先頭に置く(案内文は置かない)
 const primaryContact = contactsEn.find((contact) => contact.primary);
 const orderedContacts = primaryContact
   ? [primaryContact, ...contactsEn.filter((contact) => contact !== primaryContact)]
@@ -32,9 +33,6 @@ const orderedContacts = primaryContact
 
 const linkClass =
   'inline-flex min-h-11 items-center rounded-sm underline decoration-cobalt/40 underline-offset-4 transition-colors duration-200 ease-out-strong hover:text-ink hover:decoration-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt';
-// 文中(段落内)のリンク。高さを持たせず行の流れに置く(index.astro と同じ)
-const inlineLinkClass =
-  'rounded-sm underline decoration-cobalt/40 underline-offset-4 transition-colors duration-200 ease-out-strong hover:text-ink hover:decoration-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt';
 
 const structuredData = {
   '@context': 'https://schema.org',
@@ -78,29 +76,17 @@ const structuredData = {
       {/* 事実ベースの自己紹介 1〜2 文。宣伝表現・数字・案件名は入れない */}
       <p class="mt-4 text-sm leading-list text-ink-muted">{profileEn.intro}</p>
 
-      {
-        /* 主連絡先への案内。メールは公開しないため、LinkedIn を仕事の連絡窓口として明示する */
-        primaryContact && (
-          <p class="mt-6 text-sm leading-list">
-            {uiEn.contactLead}{' '}
-            <a href={primaryContact.href} rel="me noopener" class={inlineLinkClass}>
-              {primaryContact.label}
-            </a>
-            {uiEn.contactLeadTail}
-          </p>
-        )
-      }
-
-      <!-- 連絡先。テキストリンク 1 行、タップ領域 44px 角。別タブでは開かない -->
-      <ul class="-mx-2 mt-3 flex flex-wrap gap-x-1 gap-y-0 text-sm" aria-label="Contact">
+      <!-- 連絡先。テキストリンク 1 行、タップ領域 44px 角。別タブでは開かない。主連絡先(LinkedIn)が先頭 -->
+      <ul class="-mx-2 mt-6 flex flex-wrap gap-x-1 gap-y-0 text-sm" aria-label="Contact">
         {
           orderedContacts.map((contact) => (
             <li>
               <a
                 href={contact.href}
                 rel="me noopener"
-                class:list={[linkClass, 'min-w-11 justify-center px-2 text-ink']}
+                class:list={[linkClass, 'min-w-11 justify-center gap-1.5 px-2 text-ink']}
               >
+                <ContactIcon id={contact.id} class="size-4 shrink-0 text-ink-muted" />
                 {contact.label}
                 <span class="sr-only">
                   ({contact.handle} · {contact.role})
@@ -137,7 +123,6 @@ const structuredData = {
             ))
           }
         </dl>
-        <p class="mt-4 text-sm leading-list text-ink-muted">{profileEn.domainNote}</p>
         {
           languagesEn.length > 0 && (
             <p class="mt-4 text-xs leading-list text-ink-muted">
