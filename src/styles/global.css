@@ -98,6 +98,17 @@
     scroll-margin-top: 4.5rem;
   }
 
+  /* 和文の字間。本文は 0.02em(和文組版の目安 0.02〜0.05em の下限。ベタ組みの詰まりを少し解く程度に留める)。
+     等幅(日付・番号・コード)は字送りが崩れるので 0 に戻す。class 指定の tracking-* ユーティリティは
+     utilities レイヤーなのでこの base 規則より優先され、見出しの -0.02em 等はそのまま効く。
+     英語ページ(<html lang="en">)には掛けない(欧文はベタで組む) */
+  html:lang(ja) body {
+    letter-spacing: 0.02em;
+  }
+  :where(code, pre, kbd, samp, time, .font-mono) {
+    letter-spacing: 0;
+  }
+
   /* テキスト選択は青図のコバルトに揃える(朱は現在地の印だけに使うため) */
   ::selection {
     background: light-dark(rgb(26 86 176 / 0.2), rgb(122 169 232 / 0.3));

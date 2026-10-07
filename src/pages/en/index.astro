@@ -32,6 +32,9 @@ const orderedContacts = primaryContact
 
 const linkClass =
   'inline-flex min-h-11 items-center rounded-sm underline decoration-cobalt/40 underline-offset-4 transition-colors duration-200 ease-out-strong hover:text-ink hover:decoration-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt';
+// 文中(段落内)のリンク。高さを持たせず行の流れに置く(index.astro と同じ)
+const inlineLinkClass =
+  'rounded-sm underline decoration-cobalt/40 underline-offset-4 transition-colors duration-200 ease-out-strong hover:text-ink hover:decoration-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt';
 
 const structuredData = {
   '@context': 'https://schema.org',
@@ -80,7 +83,7 @@ const structuredData = {
         primaryContact && (
           <p class="mt-6 text-sm leading-list">
             {uiEn.contactLead}{' '}
-            <a href={primaryContact.href} rel="me noopener" class:list={[linkClass, 'ml-1']}>
+            <a href={primaryContact.href} rel="me noopener" class={inlineLinkClass}>
               {primaryContact.label}
             </a>
             {uiEn.contactLeadTail}
@@ -256,8 +259,17 @@ const structuredData = {
                   {uiEn.postsHeading}
                 </h2>
               </div>
-              <a href="/blog" hreflang="ja" class:list={[linkClass, 'text-sm text-ink-muted']}>
-                {uiEn.postsAll} <span class="text-ink-muted">{uiEn.japaneseSuffix}</span>
+              <a
+                href="/blog"
+                hreflang="ja"
+                class:list={[linkClass, 'items-end pb-[3px] text-sm text-ink-muted']}
+              >
+                {/* リンクは inline-flex なので、文とサフィックスを別々に置くと 2 つのフレックスアイテムになり
+                    間の空白が消える。1 つの span で包んで通常のインライン文として組む */}
+                <span>
+                  {uiEn.postsAll}
+                  <span class="text-ink-muted"> {uiEn.japaneseSuffix}</span>
+                </span>
               </a>
               <span aria-hidden="true" class="absolute -bottom-px left-0 h-px w-8 bg-shu" />
             </div>

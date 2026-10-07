@@ -196,8 +196,9 @@ const contentSwap = {
     >
       {
         /* 高さは 52px 固定(min-h-13)。中の操作要素は 44px 角の操作領域を持つ(モバイルの指先基準)。
-        flex-wrap は極端な文字拡大(200%等)でワードマークとナビが 1 行に収まらないときの折り返し用で、
-        通常のフォントサイズでは幅が足りるため見た目は変わらない */
+        flex-wrap は極端な文字拡大(200%等)でワードマークとナビが 1 行に収まらないときの折り返し用。
+        390px 幅で 1 行に収めるため、〜sm ではワードマークを 12px、ナビの間隔を 0(各項目の px-2 が
+        間隔を兼ねる)、言語切替を短い表記(EN / JA)にする(折り返すと sticky ヘッダーが 88px になり重いため) */
       }
       <nav
         aria-label={lang === 'en' ? 'Main' : 'メイン'}
@@ -205,7 +206,7 @@ const contentSwap = {
       >
         <a
           href={homeHref}
-          class="group -mx-2 inline-flex min-h-11 items-center gap-2 rounded-sm px-2 font-mono text-sm font-medium tracking-tight transition-colors duration-200 ease-out-strong hover:text-cobalt active:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
+          class="group -mx-2 inline-flex min-h-11 items-center gap-2 rounded-sm px-2 font-mono text-xs font-medium tracking-tight sm:text-sm transition-colors duration-200 ease-out-strong hover:text-cobalt active:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
         >
           {/* 朱の角印。ワードマークの印 */}
           <span
@@ -214,7 +215,7 @@ const contentSwap = {
           ></span>
           hyoshihara.dev
         </a>
-        <ul class="flex flex-wrap items-center gap-1 text-sm">
+        <ul class="flex flex-wrap items-center gap-0 text-sm sm:gap-1">
           {
             /* 操作ラベルは日本語。現在地は文字をインクに戻し、朱の下線を引く(朱 = 現在地の印)。
               aria-current はこのラベル付きナビだけに付け、ワードマークには付けない(WAI-ARIA は
@@ -241,9 +242,15 @@ const contentSwap = {
                 <a
                   href={alternate.href}
                   hreflang={alternate.lang}
+                  aria-label={t.switchTo[alternate.lang]}
                   class="inline-flex min-h-11 items-center rounded-sm px-2 font-mono text-xs text-ink-muted transition-colors duration-200 ease-out-strong hover:text-ink active:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
                 >
-                  {t.switchTo[alternate.lang]}
+                  <span aria-hidden="true" class="sm:hidden">
+                    {alternate.lang.toUpperCase()}
+                  </span>
+                  <span aria-hidden="true" class="hidden sm:inline">
+                    {t.switchTo[alternate.lang]}
+                  </span>
                 </a>
               </li>
             )
@@ -315,35 +322,39 @@ const contentSwap = {
     {
       /* フッターは 2 行: 連絡先(役割 + リンク)と ©。
         各リンクは 44px 角以上の操作領域(min-h-11 min-w-11 + 横 padding)。
-        横 padding ぶんはリストの負マージンで相殺し、先頭の文字位置を本文と揃える */
+        横 padding ぶんはリストの負マージンで相殺し、先頭の文字位置を本文と揃える。
+        上の罫線は px-4 の内側(div)に引き、本文・セクション罫線と左右端を揃える(footer 自体に引くと
+        枠の padding ぶん外へはみ出し、罫線の端がページ内で揃わない) */
     }
-    <footer class="mx-auto w-full max-w-site border-t border-line px-4 pb-10 pt-6 text-sm">
-      <ul class="-mx-2 flex flex-wrap items-center gap-x-1 gap-y-1">
-        {
-          orderedContacts.map(({ label, href, role }) => (
-            <li class="inline-flex items-center gap-1.5 px-2">
-              {role && <span class="text-ink-muted">{role}</span>}
-              <a
-                href={href}
-                rel="me noopener"
-                class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-sm px-2 -mx-2 text-cobalt underline decoration-cobalt/40 underline-offset-4 transition-colors duration-200 ease-out-strong hover:text-ink hover:decoration-current active:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
-              >
-                {label}
-              </a>
-            </li>
-          ))
-        }
-        <li class="inline-flex items-center gap-1.5 px-2">
-          <span class="text-ink-muted">{t.subscribe}</span>
-          <a
-            href="/rss.xml"
-            class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-sm px-2 -mx-2 text-cobalt underline decoration-cobalt/40 underline-offset-4 transition-colors duration-200 ease-out-strong hover:text-ink hover:decoration-current active:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
-          >
-            {t.rss}
-          </a>
-        </li>
-      </ul>
-      <p class="mt-2 font-mono text-xs text-ink-muted">© {year} {profile.handle}</p>
+    <footer class="mx-auto w-full max-w-site px-4 pb-10 text-sm">
+      <div class="border-t border-line pt-6">
+        <ul class="-mx-2 flex flex-wrap items-center gap-x-1 gap-y-1">
+          {
+            orderedContacts.map(({ label, href, role }) => (
+              <li class="inline-flex items-center gap-1.5 px-2">
+                {role && <span class="text-ink-muted">{role}</span>}
+                <a
+                  href={href}
+                  rel="me noopener"
+                  class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-sm px-2 -mx-2 text-cobalt underline decoration-cobalt/40 underline-offset-4 transition-colors duration-200 ease-out-strong hover:text-ink hover:decoration-current active:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
+                >
+                  {label}
+                </a>
+              </li>
+            ))
+          }
+          <li class="inline-flex items-center gap-1.5 px-2">
+            <span class="text-ink-muted">{t.subscribe}</span>
+            <a
+              href="/rss.xml"
+              class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-sm px-2 -mx-2 text-cobalt underline decoration-cobalt/40 underline-offset-4 transition-colors duration-200 ease-out-strong hover:text-ink hover:decoration-current active:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
+            >
+              {t.rss}
+            </a>
+          </li>
+        </ul>
+        <p class="mt-2 font-mono text-xs text-ink-muted">© {year} {profile.handle}</p>
+      </div>
     </footer>
     <script>
       // スクロールしてコンテンツがヘッダーに重なったときだけ罫線を出す(scroll edge effect)。
@@ -504,7 +515,7 @@ const contentSwap = {
 
   /* 高コントラスト設定ではフッターの罫線をはっきりさせる(line トークンは半透明のため) */
   @media (prefers-contrast: more) {
-    footer {
+    footer > div {
       border-top-color: currentColor;
     }
   }

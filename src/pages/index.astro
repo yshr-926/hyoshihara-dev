@@ -23,6 +23,9 @@ const orderedContacts = primaryContact
 
 const linkClass =
   'inline-flex min-h-11 items-center rounded-sm underline decoration-cobalt/40 underline-offset-4 transition-colors duration-200 ease-out-strong hover:text-ink hover:decoration-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt';
+// 文中(段落内)のリンク。高さを持たせず行の流れに置く
+const inlineLinkClass =
+  'rounded-sm underline decoration-cobalt/40 underline-offset-4 transition-colors duration-200 ease-out-strong hover:text-ink hover:decoration-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt';
 
 const structuredData = {
   '@context': 'https://schema.org',
@@ -72,11 +75,13 @@ const structuredData = {
       <p class="mt-4 text-sm leading-list text-ink-muted">{profile.intro}</p>
 
       {
-        /* 主連絡先への案内。メールは公開しないため、LinkedIn を仕事の連絡窓口として明示する */
+        /* 主連絡先への案内。メールは公開しないため、LinkedIn を仕事の連絡窓口として明示する。
+          文中のリンクなので min-h-11(44px)は付けない: 行の高さが膨らみ、折り返したときに行間が空く。
+          インラインのテキストリンクはタップ領域の例外(WCAG 2.5.8)に当たる */
         primaryContact && (
           <p class="mt-6 text-sm leading-list">
             仕事のご連絡は
-            <a href={primaryContact.href} rel="me noopener" class:list={[linkClass, 'mx-1']}>
+            <a href={primaryContact.href} rel="me noopener" class:list={[inlineLinkClass, 'mx-1']}>
               {primaryContact.label}
             </a>
             へ
@@ -243,7 +248,9 @@ const structuredData = {
                   記事
                 </h2>
               </div>
-              <a href="/blog" class:list={[linkClass, 'text-sm text-ink-muted']}>
+              {/* 文字を h2 のベースラインに揃える: 44px の箱の下端合わせだと文字が 8px 浮くので、
+                  箱の中で下寄せにし、行送りの差(h2 28px/18px、リンク 20px/14px)ぶんの 3px を下に残す */}
+              <a href="/blog" class:list={[linkClass, 'items-end pb-[3px] text-sm text-ink-muted']}>
                 記事一覧
               </a>
               <span aria-hidden="true" class="absolute -bottom-px left-0 h-px w-8 bg-shu" />
